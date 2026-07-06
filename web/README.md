@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AF WAR — web
 
-## Getting Started
+The playable web app for AF WAR (Season 1: The Glome Weakens). Next.js 16 (App
+Router, TypeScript), Supabase for auth + data.
 
-First, run the development server:
+## Setup
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. `npm install`
+2. Copy `.env.local` (already present) — confirm `NEXT_PUBLIC_SUPABASE_URL` /
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` match the AF WAR Supabase project.
+3. **Paste `../db/schema.sql` into the Supabase SQL editor** (repo root, not
+   `web/`) — creates all `afwar_*` tables + RLS policies + the `sheets`
+   storage bucket. Optionally also paste `db/seed-posts.sql` (in this folder)
+   for 3 sample feed posts so the Feed isn't empty pre-season.
+4. `npm run dev` — runs on port 3000 by default.
+5. `npm run build && npx tsc --noEmit` before shipping — both must be clean.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Auth gate: proxy.ts, not middleware.ts
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Next 16 renamed `middleware.ts` → `proxy.ts` (runs on the Node runtime by
+default). The old `middleware.ts` convention still works locally but deploys
+to the **Edge runtime on Vercel**, where a `next/server` CJS dependency
+crashes on `__dirname` and 500s every route. `proxy.ts` at the project root is
+the fix — same `@supabase/ssr` session-refresh + redirect-to-`/login` pattern
+as `~/Documents/FlowZilla/flowzilla/proxy.ts`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## The engine copy (`lib/engine/`)
 
-## Learn More
+The AF WAR rules engine (`../engine/*.ts` — pure TS, zero I/O, seeded RNG) is
+the single source of truth for game logic. This app does **not** import it
+via a relative path out of the Next project root, because:
 
-To learn more about Next.js, take a look at the following resources:
+- Next's build (webpack and Turbopack) roots its module graph and output
+  file tracing at the project directory. A relative import like
+  `../../engine/season.ts` resolves fine in `next dev`, but isn't guaranteed
+  to survive `next build`'s file tracing into a deployable bundle (files
+  outside the project root aren't automatically included).
+- Vercel deployments only upload the `web/` directory in a typical setup —
+  there is no `../engine` on the server unless it's copied in at build time.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Instead, `scripts/sync-engine.mjs` copies `rng.ts`, `dice.ts`, `map.ts`,
+`match.ts`, `season.ts` into `web/lib/engine/` on every `predev`/`prebuild`
+(wired in `package.json`). It also rewrites `from './x.js'` import
+specifiers to `from './x'` so the copies resolve under Next's TS module
+resolution (the source engine uses `.js` extensions for native Node ESM).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Never hand-edit files in `web/lib/engine/`** — they're regenerated from
+`../engine/` on every dev/build and your changes will be silently
+overwritten. Edit the engine at its source (`AFWar/engine/`) instead.
 
-## Deploy on Vercel
+`web/lib/serialize.ts` is web-only: it converts `SeasonState`'s `Map<>` fields
+to/from plain objects for JSONB storage in `afwar_seasons.state`. It lives
+next to (not inside) `lib/engine/` deliberately — `lib/engine/` is wiped and
+regenerated on every dev/build, so anything meant to survive belongs outside
+it. This also keeps the engine's "zero I/O, no serialization concerns"
+design intact.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## API routes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `POST /api/generate-sheet` — generates a character model sheet via
+  `fal-ai/nano-banana-2`. Requires `FAL_KEY` in `.env.local` (already
+  populated from the AFWar fallback chain); 501s otherwise.
+- `POST /api/gm/resolve` — the GM trigger seam. Loads the current season,
+  runs one engine round via `heuristicIntent` + `playRound`, persists
+  matches/canon events/a recap post, and saves the updated state. Requires
+  `SUPABASE_SERVICE_ROLE_KEY` in `.env.local` (commented out by default —
+  paste it from the Supabase dashboard's Settings → API to enable); 501s
+  otherwise. Narration/judging/Gazette generation is **not** wired into this
+  route yet — it only advances engine state. That LLM cascade is the next
+  seam (see `../agents/` for the prompts to call from here).
+- `GET /api/season/current` — returns the most recently created
+  `afwar_seasons` row (state included) for the Map/Ledger pages.
+
+## Constraints honored
+
+- Dependencies: `next`, `react`, `@supabase/supabase-js`, `@supabase/ssr`,
+  `@fal-ai/client` only.
+- Zone ids are never hardcoded in game logic — the Map page reads zones from
+  `ZONES` (via the synced engine copy) and season state, with a presentation-
+  only coordinate lookup (`lib/zoneLayout.ts`) that falls back to a ring
+  layout for any zone id it doesn't recognize.
