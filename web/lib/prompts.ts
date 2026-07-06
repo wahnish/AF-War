@@ -72,3 +72,16 @@ export function characterSheetPrompt(subject: SheetSubject): string {
         .replace("{subject_description}", subjectDescription)
         .replace("{expression_panels}", EXPRESSION_PANELS);
 }
+
+/** Builds a single-panel invite-comic prompt (growth-spec §2b): the
+ * character, ref-image-conditioned on their model sheet, delivering the
+ * invite line to the invitee. Cheap — one panel, not a full page. */
+export function invitePanelPrompt(opts: { characterName: string; bio: string; archetype?: string; line: string }): string {
+    const subject = `${opts.characterName}${opts.archetype ? ` — ${opts.archetype}` : ""}. ${opts.bio}`;
+    return `A single COMIC BOOK PANEL, ${AFWAR_SHEET_STYLE}
+Subject: ${subject}
+The character MUST match the reference image exactly (costume, silhouette, colors, face).
+Scene: ${opts.characterName} looks directly out at the reader, mid-address, delivering a line as a lettered speech balloon or caption box.
+Caption/balloon text (render exactly, legibly): "${opts.line}"
+No panel border grid — this is a single standalone panel, not a page. No extra characters. No logo, no watermark, no UI chrome.`;
+}

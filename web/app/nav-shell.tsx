@@ -11,10 +11,15 @@ const LINKS = [
     { href: "/barracks", label: "BARRACKS" },
     { href: "/ledger", label: "LEDGER" },
     { href: "/guide", label: "GUIDE" },
+    { href: "/crews", label: "🏴 CREWS" },
     { href: "/arcade", label: "ARCADE" },
     { href: "/gm", label: "GM" },
     { href: "/admin", label: "ADMIN" },
 ];
+
+// Links hidden entirely when logged out (require a session to do anything
+// useful) — ADMIN stays hidden logged-out too (role-gated regardless).
+const AUTH_ONLY_LINKS = new Set(["/barracks", "/gm", "/admin"]);
 
 export default function NavShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -22,13 +27,17 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
     const hideChrome = pathname?.startsWith("/login");
     const [bamf, setBamf] = useState<number | null>(null);
     const [faucetToast, setFaucetToast] = useState<string | null>(null);
+    // undefined = not checked yet, null = checked, no user
+    const [loggedIn, setLoggedIn] = useState<boolean | undefined>(undefined);
 
     useEffect(() => {
         if (hideChrome) return;
         let cancelled = false;
         const supabase = createClient();
         supabase.auth.getUser().then(async ({ data: { user } }) => {
-            if (!user || cancelled) return;
+            if (cancelled) return;
+            setLoggedIn(Boolean(user));
+            if (!user) return;
             const { data } = await supabase.from("afwar_profiles").select("bamf").eq("id", user.id).maybeSingle();
             if (!cancelled) setBamf((data as { bamf: number } | null)?.bamf ?? null);
         });
@@ -90,7 +99,7 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
                                 💰 {bamf} $BAMF
                             </span>
                         )}
-                        {LINKS.map((l) => {
+                        {LINKS.filter((l) => loggedIn || !AUTH_ONLY_LINKS.has(l.href)).map((l) => {
                             const active =
                                 l.href === "/" ? pathname === "/" : pathname?.startsWith(l.href);
                             return (
@@ -107,12 +116,22 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
                                 </Link>
                             );
                         })}
-                        <button
-                            onClick={logout}
-                            className="tag-mono px-3 py-2 rounded-sm transition-colors hover:text-[var(--neon-magenta)]"
-                        >
-                            LOGOUT
-                        </button>
+                        {loggedIn ? (
+                            <button
+                                onClick={logout}
+                                className="tag-mono px-3 py-2 rounded-sm transition-colors hover:text-[var(--neon-magenta)]"
+                            >
+                                LOGOUT
+                            </button>
+                        ) : (
+                            <Link
+                                href="/login"
+                                className="tag-mono px-3 py-2 rounded-sm transition-colors"
+                                style={{ color: "var(--neon-gold)" }}
+                            >
+                                🎫 GET YOUR APE PASS
+                            </Link>
+                        )}
                     </nav>
                 </div>
             </header>

@@ -14,7 +14,12 @@ export type BamfReason =
     | "sheet_gen"
     | "bet_stake"
     | "bet_payout"
-    | "admin_adjust";
+    | "admin_adjust"
+    // growth round (§2e): both-sides referral grant on the invitee's first
+    // character creation. 'referral_bonus' -> the inviter's ledger row,
+    // 'referral_reward' -> the new player's own ledger row for the same event.
+    | "referral_bonus"
+    | "referral_reward";
 
 export interface AdjustBamfResult {
     ok: boolean;

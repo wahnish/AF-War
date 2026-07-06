@@ -52,6 +52,7 @@ export interface Character {
     clout: number
     crew_id: string | null
     faction: string | null
+    letters_enabled: boolean
     created_at: string
 }
 
@@ -59,6 +60,8 @@ export interface Crew {
     id: string
     name: string
     motto: string | null
+    max_size: number
+    founder_id: string | null
     created_at: string
 }
 

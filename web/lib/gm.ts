@@ -15,6 +15,9 @@ import { crewIntent } from "@/lib/agents/strategist";
 import { settleBets } from "@/lib/bets";
 import { maybeRenderComic } from "@/lib/comic";
 import { maybeForgeItem } from "@/lib/loot";
+import { writeLetter } from "@/lib/agents/letters";
+import type { Telling as LetterTelling, Verdict as LetterVerdict } from "@/lib/agents/narrate";
+import { sendMail } from "@/lib/mail";
 
 export interface ResolveRoundResult {
     round: number;
@@ -335,6 +338,25 @@ export async function resolveRound(
         }
     }
 
+    // Character letters (growth-spec §1 / item 4): after narration/judging,
+    // each ACTIVE character whose owner has letters_enabled emails their
+    // director in voice — recap, gossip, and one question needing a
+    // Direction. Reuses the exact per-round data the feed post/comic
+    // cascade above already computed (tellings, verdict, directions,
+    // crew names) — this is a second render target, not new game logic.
+    try {
+        await sendRoundLetters(supabase, {
+            seasonId: season.id,
+            round: report.round,
+            comicCandidates,
+            characters,
+            crewNames,
+            directions,
+        });
+    } catch (e) {
+        console.error(`[gm] sendRoundLetters failed for round ${report.round}:`, e);
+    }
+
     try {
         await settleBets(supabase, season.id, report.round, report.matches);
     } catch (e) {
@@ -361,6 +383,32 @@ export async function resolveRound(
                 event,
             }))
         );
+    }
+
+    // Avenge-me invites (growth-spec §2c / item 3): every death this round
+    // auto-creates an invite carrying the grudge forward. The dead
+    // character's LAST letter/beat becomes a hook for a NEW director —
+    // inheriting a named villain from round one. Best-effort: a failure here
+    // must never fail round resolution.
+    for (const event of report.events) {
+        if (event.kind !== "death") continue;
+        try {
+            const deadChar = characters.get(event.pcId);
+            if (!deadChar) continue;
+            // sync the DB row to the engine's verdict — without this the
+            // AvengeBar (status === 'dead') never fires (known dual-track gap, closed here)
+            await supabase.from("afwar_characters").update({ status: "dead" }).eq("id", deadChar.id);
+            const code = crypto.randomUUID().replace(/-/g, "").slice(0, 9);
+            await supabase.from("afwar_invites").insert({
+                code,
+                inviter_id: deadChar.owner_id,
+                kind: "avenge",
+                character_id: deadChar.id,
+                grudge: event,
+            });
+        } catch (e) {
+            console.error(`[gm] avenge-invite creation failed for death event ${event.pcId}:`, e);
+        }
     }
 
     const namesMap = new Map<string, string>();
@@ -414,6 +462,88 @@ export async function resolveRound(
     }
 
     return { round: report.round, matches: report.matches.length, events: report.events.length, nowIso };
+}
+
+interface RoundLettersInput {
+    seasonId: string;
+    round: number;
+    comicCandidates: { matchId: string; m: { a: string; b: string; zoneId: string; stakes: string }; tellings: LetterTelling[]; verdict: LetterVerdict | null; aChar?: Character; bChar?: Character }[];
+    characters: Map<string, Character>;
+    crewNames: Map<string, string>;
+    directions: Map<string, Direction>;
+}
+
+/**
+ * Character letters (growth-spec §1): for each ACTIVE character involved in
+ * this round's matches (that's the population with fresh recap material —
+ * downtime-only characters get their beat via the existing downtime pass,
+ * not a letter), with letters_enabled and an owner with a real email, write
+ * an in-voice letter (recap + gossip + one Direction-shaped question) and
+ * send it. Tolerant of individual failures — one bad send must never sink
+ * the round or block another character's letter.
+ */
+async function sendRoundLetters(supabase: SupabaseClient, input: RoundLettersInput): Promise<void> {
+    const service = supabase; // caller already passes the service-role client (see resolveRound)
+
+    // Only characters that appear in this round's matches have fresh
+    // per-round material to recap — pull recap text + judge note + gossip
+    // material for each.
+    const perCharacter = new Map<
+        string,
+        { recapText: string; judgeNote?: string; gossip: { name: string; relation: string; note: string }[] }
+    >();
+
+    for (const cand of input.comicCandidates) {
+        const { aChar, bChar, tellings, verdict } = cand;
+        if (!aChar || !bChar) continue;
+        for (const [me, opponent] of [
+            [aChar, bChar],
+            [bChar, aChar],
+        ] as [Character, Character][]) {
+            const myTelling = tellings.find((t) => t.pcId === me.id);
+            const recapText = myTelling?.prose ?? `You and ${opponent.name} threw down at ${cand.m.zoneId}.`;
+            const judgeNote = verdict ? verdict.critique : undefined;
+            const relation = cand.m.stakes === "death" ? "the being you just fought to the death" : "your opponent this round";
+            const note = tellings.find((t) => t.pcId === opponent.id)?.title ?? `fought you at ${cand.m.zoneId}`;
+            const existing = perCharacter.get(me.id);
+            const gossip = [{ name: opponent.name, relation, note }];
+            if (existing) {
+                existing.gossip.push(...gossip);
+            } else {
+                perCharacter.set(me.id, { recapText, judgeNote, gossip });
+            }
+        }
+    }
+
+    for (const [charId, material] of perCharacter) {
+        const character = input.characters.get(charId);
+        if (!character) continue;
+        if (character.status !== "active") continue;
+        if ((character as unknown as { letters_enabled?: boolean }).letters_enabled === false) continue;
+
+        try {
+            const { data: userRes, error: userErr } = await service.auth.admin.getUserById(character.owner_id);
+            if (userErr || !userRes?.user?.email) continue;
+            const email = userRes.user.email;
+
+            const letter = await writeLetter(
+                { id: character.id, name: character.name, bio: character.bio ?? "", voice_notes: character.voice_notes, crewName: character.crew_id ? input.crewNames.get(character.crew_id) : undefined },
+                {
+                    round: input.round,
+                    recapText: material.recapText,
+                    judgeNote: material.judgeNote,
+                    gossipSubjects: material.gossip,
+                }
+            );
+
+            const magicLink = `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/barracks#direction-${character.id}`;
+            const body = `${letter.body}\n\n—\nReply with your orders, boss: ${magicLink}`;
+
+            await sendMail({ to: email, subject: letter.subject, text: body });
+        } catch (e) {
+            console.error(`[gm] letter send failed for character ${character.name} (${character.id}):`, e);
+        }
+    }
 }
 
 export interface DowntimeResult {

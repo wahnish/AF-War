@@ -1,12 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+    return (
+        <Suspense fallback={null}>
+            <LoginForm />
+        </Suspense>
+    );
+}
+
+function LoginForm() {
     const [email, setEmail] = useState("");
     const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
     const [errorMsg, setErrorMsg] = useState("");
+    const [scarcityLine, setScarcityLine] = useState<string | null>(null);
+    const searchParams = useSearchParams();
+
+    // Scarcity surface (growth-spec §2f / item 5): honest, no fake countdown.
+    useEffect(() => {
+        let cancelled = false;
+        fetch("/api/scarcity")
+            .then((r) => r.json())
+            .then((json: { line?: string }) => {
+                if (!cancelled && json.line) setScarcityLine(json.line);
+            })
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    // Referral wiring (growth-spec §2e / item 3): carry an invite code from
+    // /invite/[code]'s "CLAIM YOUR APE PASS" link (?invite=<code>) through
+    // the magic-link round-trip via a short-lived cookie. Read + cleared in
+    // /auth/callback on first profile creation. Pragmatic choice: OAuth/
+    // magic-link params don't survive the email round-trip, so a cookie set
+    // now and read on return (same browser) is the simplest correct carrier.
+    useEffect(() => {
+        const invite = searchParams.get("invite");
+        if (invite) {
+            document.cookie = `af_invite=${encodeURIComponent(invite)}; path=/; max-age=${60 * 60 * 24 * 7}`;
+        }
+    }, [searchParams]);
 
     async function submit(e: React.FormEvent) {
         e.preventDefault();
@@ -42,6 +80,11 @@ export default function LoginPage() {
                     </div>
                     <h1 className="wordmark text-5xl">AF WAR</h1>
                     <p className="tag-mono mt-2">Season 1: The Glome Weakens</p>
+                    {scarcityLine && (
+                        <p className="tag-mono mt-1" style={{ color: "var(--neon-gold)" }}>
+                            {scarcityLine}
+                        </p>
+                    )}
                 </div>
 
                 <div className="clipping" style={{ transform: "rotate(0.3deg)" }}>

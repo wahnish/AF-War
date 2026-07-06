@@ -35,12 +35,24 @@ export async function proxy(request: NextRequest) {
     // Even a simple mistake here causes random sign-outs.
     const { data: { user } } = await supabase.auth.getUser()
 
+    // Public-read (growth-spec §2d / ORIENTATION-PROMPT item 1): shared links
+    // must never hit a login wall. These paths are readable with no session;
+    // everything else still redirects to /login. Write actions on these
+    // pages are gated at the component/route level, not here.
+    const pathname = request.nextUrl.pathname
+    const isPublic =
+        pathname === '/' ||
+        pathname === '/map' || pathname.startsWith('/map/') ||
+        pathname === '/match' || pathname.startsWith('/match/') ||
+        pathname === '/ledger' || pathname.startsWith('/ledger/') ||
+        pathname === '/guide' || pathname.startsWith('/guide/') ||
+        pathname === '/crews' || pathname.startsWith('/crews/') ||
+        pathname === '/invite' || pathname.startsWith('/invite/') ||
+        pathname.startsWith('/login') ||
+        pathname.startsWith('/auth')
+
     // Redirect unauthenticated users to /login (skip public paths)
-    if (
-        !user &&
-        !request.nextUrl.pathname.startsWith('/login') &&
-        !request.nextUrl.pathname.startsWith('/auth')
-    ) {
+    if (!user && !isPublic) {
         const url = request.nextUrl.clone()
         url.pathname = '/login'
         return NextResponse.redirect(url)

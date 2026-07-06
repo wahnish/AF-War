@@ -10,6 +10,12 @@ const RANK_TO_DIE = [10, 8, 6, 6, 4] as const; // rank 1 (best) -> d10 ... rank 
 const ARCHETYPE_SUGGESTIONS = ["Telekinetic", "Tech Ninja", "Sharpshooter"];
 const FACTIONS = ["OG", "Horde", "Swarm", "Soup", "Primordial", "GUCKS", "unaffiliated"];
 
+function getCookie(name: string): string | null {
+    if (typeof document === "undefined") return null;
+    const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
 function emptyRanking(): Record<Ability, number> {
     return { STR: 1, END: 2, DEX: 3, CHA: 4, INT: 5 };
 }
@@ -116,6 +122,32 @@ export default function BarracksClient({ initialCharacters }: { initialCharacter
             return;
         }
 
+        let bio = form.bio;
+        // Avenge-me grudge inheritance (growth-spec §2c / item 3): a brand
+        // new character created while an af_invite cookie of kind 'avenge'
+        // is present gets the grudge appended to their bio automatically —
+        // the new director's first letter already has a villain named.
+        if (!form.id) {
+            const inviteCode = getCookie("af_invite");
+            if (inviteCode) {
+                try {
+                    const { data: inviteRow } = await supabase
+                        .from("afwar_invites")
+                        .select("kind, grudge")
+                        .eq("code", inviteCode)
+                        .maybeSingle();
+                    const invite = inviteRow as { kind: string; grudge: Record<string, unknown> | null } | null;
+                    if (invite?.kind === "avenge" && invite.grudge) {
+                        const killedByName = String(invite.grudge.killedBy ?? "someone");
+                        const zoneId = String(invite.grudge.zoneId ?? "somewhere in the Glome");
+                        bio = `${bio}\n\n${form.name || "This character"} carries a grudge: whoever wears the name "${killedByName}" owes a debt from a killing at ${zoneId}, and it will be collected.`;
+                    }
+                } catch {
+                    // best-effort — a missing/invalid invite cookie must never block character creation
+                }
+            }
+        }
+
         const payload = {
             owner_id: user.id,
             name: form.name,
@@ -124,7 +156,7 @@ export default function BarracksClient({ initialCharacters }: { initialCharacter
             attack_ability: form.attack_ability,
             power: { name: form.powerName || "Unnamed Power", level: form.powerLevel },
             policy: form.policy,
-            bio: form.bio,
+            bio,
             voice_notes: form.voice_notes,
             model_sheet_url: form.model_sheet_url || null,
             faction: form.faction || null,
@@ -169,7 +201,7 @@ export default function BarracksClient({ initialCharacters }: { initialCharacter
             ) : (
                 <div className="grid md:grid-cols-2 gap-4">
                     {characters.map((c) => (
-                        <div key={c.id} className="panel p-5">
+                        <div key={c.id} id={`direction-${c.id}`} className="panel p-5">
                             <div className="flex justify-between items-start mb-2">
                                 <div>
                                     <h3 className="text-2xl">{c.name}</h3>
@@ -182,6 +214,7 @@ export default function BarracksClient({ initialCharacters }: { initialCharacter
                                     {c.status}
                                 </span>
                             </div>
+                            <LettersToggle character={c} />
                             <div className="flex gap-3 tag-mono mb-3 flex-wrap">
                                 {ABILITIES.map((ab) => (
                                     <span key={ab}>
@@ -197,6 +230,7 @@ export default function BarracksClient({ initialCharacters }: { initialCharacter
                                 Edit
                             </button>
                             <DirectionForm character={c} />
+                            {c.status === "dead" && <AvengeBar character={c} />}
                         </div>
                     ))}
                 </div>
@@ -334,6 +368,80 @@ function AgentSettingsPanel() {
                     )}
                 </div>
             )}
+        </div>
+    );
+}
+
+// Letters opt-out (growth-spec §0c / item 4): per-character, not per-account
+// — a director may let one PC's letters run while muting another's.
+function LettersToggle({ character }: { character: Character }) {
+    const [enabled, setEnabled] = useState(character.letters_enabled !== false);
+    const [saving, setSaving] = useState(false);
+
+    async function toggle() {
+        const next = !enabled;
+        setEnabled(next);
+        setSaving(true);
+        const supabase = createClient();
+        await supabase.from("afwar_characters").update({ letters_enabled: next }).eq("id", character.id);
+        setSaving(false);
+    }
+
+    return (
+        <label className="flex items-center gap-2 tag-mono mb-2 opacity-80">
+            <input type="checkbox" checked={enabled} onChange={toggle} disabled={saving} />
+            <span>✉ Letters {enabled ? "on" : "off"}</span>
+        </label>
+    );
+}
+
+// Avenge-me surface (growth-spec §2c / item 3): a dead character's owner
+// sees their auto-created avenge invite here, shareable to a new director.
+function AvengeBar({ character }: { character: Character }) {
+    const [code, setCode] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let cancelled = false;
+        const supabase = createClient();
+        supabase
+            .from("afwar_invites")
+            .select("code")
+            .eq("character_id", character.id)
+            .eq("kind", "avenge")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+            .then(({ data }: { data: { code: string } | null }) => {
+                if (cancelled) return;
+                setCode(data?.code ?? null);
+                setLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [character.id]);
+
+    if (loading || !code) return null;
+
+    const link = typeof window !== "undefined" ? `${window.location.origin}/invite/${code}` : `/invite/${code}`;
+
+    return (
+        <div className="panel p-3 mt-3" style={{ borderColor: "var(--blood)" }}>
+            <p className="text-sm mb-2">
+                Your character is dead. Name a successor — or send this to someone who&apos;ll avenge them.
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+                <code className="tag-mono" style={{ color: "var(--neon-cyan)" }}>
+                    {link}
+                </code>
+                <button
+                    className="btn"
+                    onClick={() => navigator.clipboard?.writeText(link)}
+                >
+                    copy
+                </button>
+            </div>
         </div>
     );
 }

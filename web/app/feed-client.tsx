@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import type { Post } from "@/lib/types";
 
 const TIP_AMOUNTS = [5, 10, 25] as const;
@@ -122,6 +123,19 @@ function TipBar({ post }: { post: Post }) {
     const [tipCount, setTipCount] = useState(post.tip_count ?? 0);
     const [error, setError] = useState("");
     const [done, setDone] = useState(false);
+    const [loggedIn, setLoggedIn] = useState<boolean | undefined>(undefined);
+
+    useEffect(() => {
+        let cancelled = false;
+        createClient()
+            .auth.getUser()
+            .then(({ data: { user } }) => {
+                if (!cancelled) setLoggedIn(Boolean(user));
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     async function tip(amount: number) {
         setSending(amount);
@@ -142,6 +156,16 @@ function TipBar({ post }: { post: Post }) {
         } finally {
             setSending(null);
         }
+    }
+
+    if (loggedIn === false) {
+        return (
+            <div className="mt-3 pt-3 flex items-center gap-2 flex-wrap" style={{ borderTop: "1px solid var(--line)" }}>
+                <Link className="tag-mono" style={{ color: "var(--neon-gold)" }} href="/login">
+                    💸 log in to tip{tipCount > 0 ? ` (${tipCount})` : ""}
+                </Link>
+            </div>
+        );
     }
 
     return (
