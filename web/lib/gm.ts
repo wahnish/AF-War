@@ -145,16 +145,27 @@ export async function resolveRound(
 
     const ownerIds = Array.from(new Set((charRows ?? []).map((c: Character) => c.owner_id).filter(Boolean))) as string[];
     const { data: ownerRows } = ownerIds.length
-        ? await supabase.from("afwar_profiles").select("id, openrouter_key, model_tier, model_name").in("id", ownerIds)
-        : { data: [] as { id: string; openrouter_key: string | null; model_tier: string; model_name: string | null }[] };
-    const ownerProfiles = new Map<string, { openrouter_key: string | null; model_tier: string; model_name: string | null }>(
-        (ownerRows ?? []).map((p: { id: string; openrouter_key: string | null; model_tier: string; model_name: string | null }) => [p.id, p])
+        ? await supabase.from("afwar_profiles").select("id, model_tier, model_name").in("id", ownerIds)
+        : { data: [] as { id: string; model_tier: string; model_name: string | null }[] };
+    const ownerProfiles = new Map<string, { model_tier: string; model_name: string | null }>(
+        (ownerRows ?? []).map((p: { id: string; model_tier: string; model_name: string | null }) => [p.id, p])
+    );
+    // openrouter_key lives on afwar_secrets (schema-005), not afwar_profiles —
+    // that table is owner-only RLS, so it's only safely readable here because
+    // this whole function runs on the service-role client (see the module
+    // header comment: callers own the service-role client).
+    const { data: secretRows } = ownerIds.length
+        ? await supabase.from("afwar_secrets").select("user_id, openrouter_key").in("user_id", ownerIds)
+        : { data: [] as { user_id: string; openrouter_key: string | null }[] };
+    const ownerSecrets = new Map<string, string | null>(
+        (secretRows ?? []).map((s: { user_id: string; openrouter_key: string | null }) => [s.user_id, s.openrouter_key])
     );
 
     function llmOverrideFor(c: Character): { key?: string; model?: string } | undefined {
         const profile = ownerProfiles.get(c.owner_id);
-        if (!profile || profile.model_tier !== "byo" || !profile.openrouter_key) return undefined;
-        return { key: profile.openrouter_key, model: profile.model_name || undefined };
+        const key = ownerSecrets.get(c.owner_id);
+        if (!profile || profile.model_tier !== "byo" || !key) return undefined;
+        return { key, model: profile.model_name || undefined };
     }
 
     const { data: canonCastRows } = await supabase

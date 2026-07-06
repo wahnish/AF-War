@@ -2,12 +2,10 @@
 import type { Ability, Die } from './engine/dice'
 import type { SeasonState } from './engine/season'
 
-// openrouter_key is DELIBERATELY EXCLUDED from this shared type (schema-002
-// §2's documented RLS gap: table-level select-all still exposes every
-// column at the DB layer, so the app-layer discipline of never selecting
-// openrouter_key outside the owner's own settings fetch is the only guard —
-// keeping it off the shared Profile type makes "don't put this in a list
-// query" the type-checked default rather than a comment to remember).
+// openrouter_key is NOT a column on afwar_profiles — schema-005 moved it to
+// afwar_secrets (owner-only RLS: user_id = auth.uid(), service_role all),
+// closing the leak where "profiles: select all" exposed it to every
+// authenticated user. See lib/gm.ts for the service-role read path.
 export interface Profile {
     id: string
     handle: string | null

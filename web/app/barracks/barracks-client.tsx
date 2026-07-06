@@ -265,15 +265,20 @@ function AgentSettingsPanel() {
         }
         const { data } = await supabase
             .from("afwar_profiles")
-            .select("model_tier, model_name, openrouter_key")
+            .select("model_tier, model_name")
             .eq("id", user.id)
             .maybeSingle();
-        const row = data as { model_tier: string; model_name: string | null; openrouter_key: string | null } | null;
+        const row = data as { model_tier: string; model_name: string | null } | null;
         if (row) {
             setTier((row.model_tier as "house" | "byo") ?? "house");
             setModelName(row.model_name || "anthropic/claude-sonnet-4.5");
-            setHasKey(Boolean(row.openrouter_key));
         }
+        const { data: secretRow } = await supabase
+            .from("afwar_secrets")
+            .select("openrouter_key")
+            .eq("user_id", user.id)
+            .maybeSingle();
+        setHasKey(Boolean((secretRow as { openrouter_key: string | null } | null)?.openrouter_key));
         setLoading(false);
     }
 
@@ -296,10 +301,16 @@ function AgentSettingsPanel() {
             return;
         }
         const payload: Record<string, unknown> = { model_tier: tier, model_name: modelName };
-        if (keyInput.trim()) payload.openrouter_key = keyInput.trim();
         const { error } = await supabase.from("afwar_profiles").update(payload).eq("id", user.id);
-        if (error) {
-            setError(error.message);
+        let secretError: string | undefined;
+        if (!error && keyInput.trim()) {
+            const { error: secretErr } = await supabase
+                .from("afwar_secrets")
+                .upsert({ user_id: user.id, openrouter_key: keyInput.trim(), updated_at: new Date().toISOString() });
+            secretError = secretErr?.message;
+        }
+        if (error || secretError) {
+            setError(error?.message || secretError || "Save failed.");
         } else {
             if (keyInput.trim()) {
                 setHasKey(true);
