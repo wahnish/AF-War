@@ -1,7 +1,7 @@
 // Narration, judging, and Gazette recaps. The dice transcript is GROUND TRUTH:
 // narrations must honor every beat; they compete only on the telling.
 
-import { llm, extractJson } from './llm.js'
+import { llm, extractJson, type LlmOverride } from './llm.js'
 import type { PCDef } from '../engine/season.js'
 import type { MatchResult } from '../engine/match.js'
 import type { CanonEvent } from '../engine/season.js'
@@ -45,7 +45,7 @@ function beatSummary(r: MatchResult): string {
 }
 
 export async function narrateMatch(
-    me: PCDef, opponent: PCDef, r: MatchResult, round: number
+    me: PCDef, opponent: PCDef, r: MatchResult, round: number, override?: LlmOverride
 ): Promise<Telling> {
     const zone = zoneById(r.zoneId)
     const iWon = r.winner === me.id
@@ -63,7 +63,7 @@ ${beatSummary(r)}
 
 Return JSON only:
 {"title": "punchy episode title", "prose": "your 250-400 word account, ${me.name}'s voice", "panels": [6-8 comic panels: {"n":1,"shot":"...","description":"...","dialogue":[{"speaker":"...","text":"...","kind":"speech|thought|shout|caption"}],"sfx":"optional"}]}`
-    const out = await llm(system, user, 2400)
+    const out = await llm(system, user, 2400, override)
     const parsed = extractJson<Omit<Telling, 'pcId'>>(out)
     // normalize — LLM shape drift must never crash the bundle
     const panels = (parsed.panels ?? []).map((p, i) => ({
@@ -80,10 +80,10 @@ export interface Verdict {
     critique: string
 }
 
-export async function judgeMatch(a: Telling, b: Telling, r: MatchResult, aName: string, bName: string): Promise<Verdict> {
+export async function judgeMatch(a: Telling, b: Telling, r: MatchResult, aName: string, bName: string, canonNotes = ''): Promise<Verdict> {
     const system = `You are THE ARBITER, cosmic judge of AF WAR — a hooded entity of vast taste and limited patience, with a Hyper-Brooklyn Gazette columnist's tongue.
 ${TONE}
-Two player agents narrated the SAME battle. The dice already decided who WON — you judge only ENTERTAINMENT: voice, comedy that lands, how well each depicted their OPPONENT, use of the zone's terrain, fidelity to the dice beats. The more entertaining telling becomes CANON. Write in character; be quotable; play favorites out loud.`
+Two player agents narrated the SAME battle. The dice already decided who WON — you judge only ENTERTAINMENT: voice, comedy that lands, how well each depicted their OPPONENT, use of the zone's terrain, fidelity to the dice beats. The more entertaining telling becomes CANON. Write in character; be quotable; play favorites out loud.${canonNotes}`
     const user = `MATCH: ${aName} vs ${bName} — winner by dice: ${r.winner}
 TELLING A (${aName}):
 ${JSON.stringify({ title: a.title, prose: a.prose })}
@@ -95,10 +95,10 @@ Return JSON only: {"canonPcId": "${a.pcId}" or "${b.pcId}", "scores": {"${a.pcId
     return extractJson<Verdict>(out)
 }
 
-export async function gazetteRecap(round: number, events: CanonEvent[], names: Map<string, string>): Promise<string> {
+export async function gazetteRecap(round: number, events: CanonEvent[], names: Map<string, string>, canonNotes = ''): Promise<string> {
     const system = `You write the front page of the HYPER-BROOKLYN GAZETTE — the borough's cosmic tabloid of record ("facts often take a backseat to sensationalism").
 ${TONE}
-Turn this round's canon events into a front page: one screaming headline, then 3-5 short items (dateline style, 1-3 sentences each). Refer to zones and characters by name. The Primordial's corruption spreading is WEATHER-SECTION mundane to locals — report it like a subway delay.`
+Turn this round's canon events into a front page: one screaming headline, then 3-5 short items (dateline style, 1-3 sentences each). Refer to zones and characters by name. The Primordial's corruption spreading is WEATHER-SECTION mundane to locals — report it like a subway delay.${canonNotes}`
     const named = events.map(e => JSON.stringify(e, (k, v) => typeof v === 'string' && names.has(v) ? names.get(v) : v))
     const user = `ROUND ${round} CANON EVENTS:\n${named.join('\n')}\n\nReturn the front page as markdown. No JSON.`
     return llm(system, user, 1000)

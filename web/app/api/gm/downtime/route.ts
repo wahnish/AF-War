@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { requireGm } from "@/lib/role";
 import { narrateDowntime } from "@/lib/agents/downtime";
 import type { Character, Season } from "@/lib/types";
 
@@ -19,7 +20,11 @@ function shuffle<T>(arr: T[]): T[] {
 // beats, with a chance of a reply from another active character. Purely
 // flavor — no dice, no state mutation beyond afwar_posts. Tolerant of
 // per-character LLM failures (skip and continue).
+// Role-gated: caller must be profiles.role='gm' (schema-002 §5).
 export async function POST() {
+    const gate = await requireGm();
+    if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+
     const supabase = createServiceClient();
     if (!supabase) {
         return NextResponse.json({ error: "service role key needed" }, { status: 501 });
@@ -50,6 +55,20 @@ export async function POST() {
         .maybeSingle();
     const round = (seasonRow as Season | null)?.state?.round ?? null;
 
+    // Canon Cast wiring (schema-002 §1): active canon_cast rows whose name
+    // appears in a character's context get their notes appended.
+    const { data: canonCastRows } = await supabase
+        .from("afwar_canon_cast")
+        .select("name, canon_notes")
+        .eq("active", true);
+    const canonCast = (canonCastRows ?? []) as { name: string; canon_notes: { date: string; note: string }[] }[];
+    function canonNotesFor(text: string): string {
+        const hits = canonCast.filter((c) => c.name && text.includes(c.name) && c.canon_notes?.length);
+        if (!hits.length) return "";
+        const lines = hits.flatMap((c) => c.canon_notes.map((n) => `${c.name}: ${n.note}`));
+        return `\n\nCANON NOTES (behavior corrections, obey strictly): ${lines.join(" | ")}`;
+    }
+
     const n = Math.min(active.length, 3 + Math.floor(Math.random() * 3)); // 3-5
     const chosen = shuffle(active).slice(0, n);
 
@@ -58,13 +77,17 @@ export async function POST() {
 
     for (const character of chosen) {
         try {
-            const { title, body } = await narrateDowntime({
-                name: character.name,
-                bio: character.bio ?? "",
-                voice_notes: character.voice_notes,
-                scars: character.scars,
-                crewName: character.crew_id ? crewNames.get(character.crew_id) : undefined,
-            });
+            const { title, body } = await narrateDowntime(
+                {
+                    name: character.name,
+                    bio: character.bio ?? "",
+                    voice_notes: character.voice_notes,
+                    scars: character.scars,
+                    crewName: character.crew_id ? crewNames.get(character.crew_id) : undefined,
+                },
+                undefined,
+                canonNotesFor(`${character.name} ${character.bio ?? ""}`)
+            );
 
             const { error: insertErr } = await supabase.from("afwar_posts").insert({
                 season_id: seasonRow?.id ?? null,
@@ -95,7 +118,8 @@ export async function POST() {
                             scars: replier.scars,
                             crewName: replier.crew_id ? crewNames.get(replier.crew_id) : undefined,
                         },
-                        `${title}: ${body}`
+                        `${title}: ${body}`,
+                        canonNotesFor(`${replier.name} ${replier.bio ?? ""}`)
                     );
                     const { error: replyErr } = await supabase.from("afwar_posts").insert({
                         season_id: seasonRow?.id ?? null,

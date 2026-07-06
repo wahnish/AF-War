@@ -18,7 +18,7 @@ const AGENTS_SRC = join(HERE, '../../agents')
 const AGENTS_DEST = join(HERE, '../lib/agents')
 
 const FILES = ['rng.ts', 'dice.ts', 'map.ts', 'match.ts', 'season.ts']
-const AGENTS_FILES = ['llm.ts', 'narrate.ts', 'downtime.ts']
+const AGENTS_FILES = ['llm.ts', 'narrate.ts', 'downtime.ts', 'strategist.ts']
 
 function syncDir(srcDir, destDir, files) {
     if (!existsSync(srcDir)) {

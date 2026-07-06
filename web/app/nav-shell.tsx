@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -10,13 +11,30 @@ const LINKS = [
     { href: "/barracks", label: "BARRACKS" },
     { href: "/ledger", label: "LEDGER" },
     { href: "/guide", label: "GUIDE" },
+    { href: "/arcade", label: "ARCADE" },
     { href: "/gm", label: "GM" },
+    { href: "/admin", label: "ADMIN" },
 ];
 
 export default function NavShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
     const hideChrome = pathname?.startsWith("/login");
+    const [bamf, setBamf] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (hideChrome) return;
+        let cancelled = false;
+        const supabase = createClient();
+        supabase.auth.getUser().then(async ({ data: { user } }) => {
+            if (!user || cancelled) return;
+            const { data } = await supabase.from("afwar_profiles").select("bamf").eq("id", user.id).maybeSingle();
+            if (!cancelled) setBamf((data as { bamf: number } | null)?.bamf ?? null);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [hideChrome, pathname]);
 
     async function logout() {
         const supabase = createClient();
@@ -40,6 +58,11 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
                         <span className="tag-mono">Season 1: The Glome Weakens</span>
                     </div>
                     <nav className="flex items-center gap-1 flex-wrap">
+                        {bamf !== null && (
+                            <span className="tag-mono px-3 py-2" style={{ color: "var(--neon-gold)" }}>
+                                💰 {bamf} $BAMF
+                            </span>
+                        )}
                         {LINKS.map((l) => {
                             const active =
                                 l.href === "/" ? pathname === "/" : pathname?.startsWith(l.href);

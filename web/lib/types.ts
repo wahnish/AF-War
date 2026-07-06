@@ -5,6 +5,11 @@ import type { SeasonState } from './engine/season'
 export interface Profile {
     id: string
     handle: string | null
+    role: 'player' | 'gm'
+    openrouter_key: string | null
+    model_tier: 'house' | 'byo'
+    model_name: string | null
+    bamf: number
     created_at: string
 }
 
@@ -41,6 +46,7 @@ export interface Character {
     kills: number
     clout: number
     crew_id: string | null
+    faction: string | null
     created_at: string
 }
 
@@ -76,6 +82,7 @@ export interface MatchRow {
     tellings: MatchTellings
     verdict: MatchVerdict
     winner: string | null
+    media: unknown[]
     created_at: string
 }
 
@@ -110,5 +117,34 @@ export interface Direction {
     tone_note: string | null
     vp_budget: number | null
     ability_lane: string | null
+    created_at: string
+}
+
+export interface CanonNote {
+    date: string
+    note: string
+}
+
+export interface CanonCast {
+    id: string
+    name: string
+    kind: 'npc' | 'judge' | 'gm'
+    bio: string | null
+    model_sheet_url: string | null
+    canon_notes: CanonNote[]
+    active: boolean
+    faction: string | null
+    created_at: string
+}
+
+export interface Bet {
+    id: string
+    user_id: string
+    match_id: string | null
+    season_id: string
+    round: number
+    on_character: string
+    amount: number
+    status: 'open' | 'won' | 'lost'
     created_at: string
 }

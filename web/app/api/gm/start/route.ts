@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { requireGm } from "@/lib/role";
 import { setupSeason } from "@/lib/engine/season";
 import type { PCDef, SeasonConfig } from "@/lib/engine/season";
 import { serializeSeasonState } from "@/lib/serialize";
@@ -11,7 +12,11 @@ export const maxDuration = 60;
 // Starts a new season from every currently 'active' afwar_characters row.
 // Characters with a crew_id join their crew; characters without one become
 // a solo 1-PC crew named after themselves (crew id = character id).
+// Role-gated: caller must be profiles.role='gm' (schema-002 §5).
 export async function POST() {
+    const gate = await requireGm();
+    if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+
     const supabase = createServiceClient();
     if (!supabase) {
         return NextResponse.json({ error: "service role key needed" }, { status: 501 });

@@ -8,6 +8,7 @@ import type { Ability } from "@/lib/engine/dice";
 const ABILITIES: Ability[] = ["STR", "END", "DEX", "CHA", "INT"];
 const RANK_TO_DIE = [10, 8, 6, 6, 4] as const; // rank 1 (best) -> d10 ... rank 5 -> d4, per R1
 const ARCHETYPE_SUGGESTIONS = ["Telekinetic", "Tech Ninja", "Sharpshooter"];
+const FACTIONS = ["OG", "Horde", "Swarm", "Soup", "Primordial", "GUCKS", "unaffiliated"];
 
 function emptyRanking(): Record<Ability, number> {
     return { STR: 1, END: 2, DEX: 3, CHA: 4, INT: 5 };
@@ -38,6 +39,7 @@ interface FormState {
     bio: string;
     voice_notes: string;
     model_sheet_url: string;
+    faction: string;
 }
 
 function emptyForm(): FormState {
@@ -52,6 +54,7 @@ function emptyForm(): FormState {
         bio: "",
         voice_notes: "",
         model_sheet_url: "",
+        faction: "",
     };
 }
 
@@ -77,6 +80,7 @@ function toForm(c: Character): FormState {
         bio: c.bio ?? "",
         voice_notes: c.voice_notes ?? "",
         model_sheet_url: c.model_sheet_url ?? "",
+        faction: c.faction ?? "",
     };
 }
 
@@ -123,6 +127,7 @@ export default function BarracksClient({ initialCharacters }: { initialCharacter
             bio: form.bio,
             voice_notes: form.voice_notes,
             model_sheet_url: form.model_sheet_url || null,
+            faction: form.faction || null,
         };
 
         const { error } = form.id
@@ -153,6 +158,8 @@ export default function BarracksClient({ initialCharacters }: { initialCharacter
 
     return (
         <div>
+            <AgentSettingsPanel />
+
             <button className="btn btn-magenta mb-6" onClick={() => setEditing(emptyForm())}>
                 + Draft a new Original Character
             </button>
@@ -192,6 +199,139 @@ export default function BarracksClient({ initialCharacters }: { initialCharacter
                             <DirectionForm character={c} />
                         </div>
                     ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// BYO agent keys + model tiers (schema-002 §2). Write-only UX for the key:
+// once saved, we never re-render the plaintext value back — just "•••set".
+function AgentSettingsPanel() {
+    const [open, setOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [tier, setTier] = useState<"house" | "byo">("house");
+    const [modelName, setModelName] = useState("anthropic/claude-sonnet-4.5");
+    const [hasKey, setHasKey] = useState(false);
+    const [keyInput, setKeyInput] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState("");
+    const [saved, setSaved] = useState(false);
+
+    async function load() {
+        setLoading(true);
+        const supabase = createClient();
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+            setLoading(false);
+            return;
+        }
+        const { data } = await supabase
+            .from("afwar_profiles")
+            .select("model_tier, model_name, openrouter_key")
+            .eq("id", user.id)
+            .maybeSingle();
+        const row = data as { model_tier: string; model_name: string | null; openrouter_key: string | null } | null;
+        if (row) {
+            setTier((row.model_tier as "house" | "byo") ?? "house");
+            setModelName(row.model_name || "anthropic/claude-sonnet-4.5");
+            setHasKey(Boolean(row.openrouter_key));
+        }
+        setLoading(false);
+    }
+
+    function toggle() {
+        if (!open) load();
+        setOpen(!open);
+    }
+
+    async function save() {
+        setSaving(true);
+        setError("");
+        setSaved(false);
+        const supabase = createClient();
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+            setError("Not signed in.");
+            setSaving(false);
+            return;
+        }
+        const payload: Record<string, unknown> = { model_tier: tier, model_name: modelName };
+        if (keyInput.trim()) payload.openrouter_key = keyInput.trim();
+        const { error } = await supabase.from("afwar_profiles").update(payload).eq("id", user.id);
+        if (error) {
+            setError(error.message);
+        } else {
+            if (keyInput.trim()) {
+                setHasKey(true);
+                setKeyInput("");
+            }
+            setSaved(true);
+        }
+        setSaving(false);
+    }
+
+    return (
+        <div className="panel p-5 mb-6">
+            <div className="flex items-center justify-between">
+                <span className="tag-mono">⚙ AGENT SETTINGS — model tier &amp; your own OpenRouter key</span>
+                <button className="btn" onClick={toggle}>
+                    {open ? "close" : "open"}
+                </button>
+            </div>
+            {open && (
+                <div className="mt-4 flex flex-col gap-3 max-w-md">
+                    {loading ? (
+                        <p className="tag-mono opacity-60">loading…</p>
+                    ) : (
+                        <>
+                            <div>
+                                <label className="field-label">Model tier</label>
+                                <select value={tier} onChange={(e) => setTier(e.target.value as "house" | "byo")} style={{ width: 200 }}>
+                                    <option value="house">House (default)</option>
+                                    <option value="byo">Bring your own key</option>
+                                </select>
+                            </div>
+                            {tier === "byo" && (
+                                <>
+                                    <div>
+                                        <label className="field-label">OpenRouter API key {hasKey && <span style={{ color: "var(--neon-lime)" }}>(•••set)</span>}</label>
+                                        <input
+                                            type="password"
+                                            value={keyInput}
+                                            onChange={(e) => setKeyInput(e.target.value)}
+                                            placeholder={hasKey ? "leave blank to keep the saved key" : "sk-or-…"}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="field-label">Model</label>
+                                        <input type="text" value={modelName} onChange={(e) => setModelName(e.target.value)} />
+                                    </div>
+                                </>
+                            )}
+                            {error && (
+                                <p className="tag-mono" style={{ color: "var(--blood)" }}>
+                                    {error}
+                                </p>
+                            )}
+                            {saved && (
+                                <p className="tag-mono" style={{ color: "var(--neon-lime)" }}>
+                                    Saved.
+                                </p>
+                            )}
+                            <button className="btn btn-magenta" onClick={save} disabled={saving}>
+                                {saving ? "Saving…" : "Save settings"}
+                            </button>
+                            <p className="tag-mono opacity-50 text-xs">
+                                Narration for your characters rides your key+model when set to BYO. Judge/Gazette/downtime always
+                                use the house key. A bad BYO key falls back to house automatically.
+                            </p>
+                        </>
+                    )}
                 </div>
             )}
         </div>
@@ -500,6 +640,18 @@ function CharacterForm({
                             </button>
                         ))}
                     </div>
+                </div>
+
+                <div>
+                    <label className="field-label">Faction (lore flavor — no mechanical effect)</label>
+                    <select value={form.faction} onChange={(e) => setForm({ ...form, faction: e.target.value })} style={{ width: 200 }}>
+                        <option value="">(none)</option>
+                        {FACTIONS.map((f) => (
+                            <option key={f} value={f}>
+                                {f}
+                            </option>
+                        ))}
+                    </select>
                 </div>
 
                 <div>

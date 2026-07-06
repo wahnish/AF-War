@@ -1,0 +1,158 @@
+import { NextResponse } from "next/server";
+import { createServiceClient } from "@/lib/supabase/server";
+import { requireGm } from "@/lib/role";
+import { zoneById } from "@/lib/engine/map";
+import type { MatchRow, Character, Season } from "@/lib/types";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+interface Telling {
+    pcId: string;
+    title: string;
+    prose: string;
+}
+
+// Season→Anthology compiler (schema-002 §7). Collects every match this
+// season, ordered by round, and builds ONE markdown anthology: a cover
+// block, then per-round chapters (Gazette recap + canon tellings + comic
+// image links). Stored as an afwar_posts 'system' post AND saved to the
+// 'sheets' storage bucket as anthology.md. Role-gated: GM only.
+export async function POST() {
+    const gate = await requireGm();
+    if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+
+    const supabase = createServiceClient();
+    if (!supabase) {
+        return NextResponse.json({ error: "service role key needed" }, { status: 501 });
+    }
+
+    const { data: seasonRow, error: seasonErr } = await supabase
+        .from("afwar_seasons")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    if (seasonErr) return NextResponse.json({ error: seasonErr.message }, { status: 500 });
+    if (!seasonRow) return NextResponse.json({ error: "no season found" }, { status: 404 });
+    const season = seasonRow as Season;
+
+    const { data: matchRows, error: matchesErr } = await supabase
+        .from("afwar_matches")
+        .select("*")
+        .eq("season_id", season.id)
+        .order("round", { ascending: true });
+    if (matchesErr) return NextResponse.json({ error: matchesErr.message }, { status: 500 });
+    const matches = (matchRows ?? []) as MatchRow[];
+
+    const { data: gazetteRows } = await supabase
+        .from("afwar_posts")
+        .select("*")
+        .eq("season_id", season.id)
+        .eq("kind", "gazette")
+        .order("round", { ascending: true });
+
+    const charIds = Array.from(
+        new Set(matches.flatMap((m) => [m.a_character, m.b_character]).filter((id): id is string => Boolean(id)))
+    );
+    const { data: charRows } = charIds.length
+        ? await supabase.from("afwar_characters").select("id,name").in("id", charIds)
+        : { data: [] as { id: string; name: string }[] };
+    const names = new Map<string, string>(((charRows ?? []) as Pick<Character, "id" | "name">[]).map((c) => [c.id, c.name]));
+
+    const byRound = new Map<number, MatchRow[]>();
+    for (const m of matches) {
+        if (!byRound.has(m.round)) byRound.set(m.round, []);
+        byRound.get(m.round)!.push(m);
+    }
+    const gazetteByRound = new Map<number, string>();
+    for (const g of gazetteRows ?? []) {
+        if (g.round != null) gazetteByRound.set(g.round, g.body);
+    }
+
+    const rounds = Array.from(byRound.keys()).sort((a, b) => a - b);
+    const lines: string[] = [];
+    lines.push(`# ${season.name} — SEASON ANTHOLOGY`);
+    lines.push("");
+    lines.push(`*A continuity graph that writes itself — Hyper-Brooklyn, AF WAR.*`);
+    lines.push("");
+    lines.push(`Compiled ${new Date().toISOString().slice(0, 10)} · ${matches.length} matches across ${rounds.length} rounds.`);
+    lines.push("");
+    lines.push("---");
+
+    for (const round of rounds) {
+        lines.push("");
+        lines.push(`## ROUND ${round}`);
+
+        const gazette = gazetteByRound.get(round);
+        if (gazette) {
+            lines.push("");
+            lines.push("### Hyper-Brooklyn Gazette");
+            lines.push("");
+            lines.push(gazette);
+        }
+
+        for (const m of byRound.get(round) ?? []) {
+            const zone = (() => {
+                try {
+                    return zoneById(m.zone_id);
+                } catch {
+                    return { name: m.zone_id, blurb: "" };
+                }
+            })();
+            const aName = m.a_character ? names.get(m.a_character) ?? m.a_character : "?";
+            const bName = m.b_character ? names.get(m.b_character) ?? m.b_character : "?";
+            const tellings = (m.tellings as Telling[] | null) ?? [];
+            const verdict = m.verdict;
+            const canon = verdict ? tellings.find((t) => t.pcId === verdict.canonPcId) : tellings[0];
+
+            lines.push("");
+            lines.push(`### ${aName} vs ${bName} — ${zone.name} (${m.stakes})`);
+            if (canon) {
+                lines.push("");
+                lines.push(`**${canon.title}**`);
+                lines.push("");
+                lines.push(canon.prose);
+            }
+            const media = (m.media as { url?: string }[] | null) ?? [];
+            const pageUrls = media.map((x) => x?.url).filter((u): u is string => Boolean(u));
+            if (pageUrls.length) {
+                lines.push("");
+                lines.push("Comic pages:");
+                for (const url of pageUrls) lines.push(`- ${url}`);
+            }
+        }
+    }
+
+    const markdown = lines.join("\n");
+
+    const { data: insertedPost, error: postErr } = await supabase
+        .from("afwar_posts")
+        .insert({
+            season_id: season.id,
+            author_character: null,
+            kind: "system",
+            title: "📖 Season Anthology",
+            body: markdown,
+            media: [],
+            round: null,
+        })
+        .select("id")
+        .single();
+    if (postErr) return NextResponse.json({ error: postErr.message }, { status: 500 });
+
+    let storagePath: string | null = null;
+    try {
+        const { error: uploadErr } = await supabase.storage
+            .from("sheets")
+            .upload(`anthologies/${season.id}/anthology.md`, markdown, {
+                contentType: "text/markdown",
+                upsert: true,
+            });
+        if (!uploadErr) storagePath = `anthologies/${season.id}/anthology.md`;
+    } catch (e) {
+        console.error("[gm/anthology] storage upload failed:", e);
+    }
+
+    return NextResponse.json({ postId: insertedPost?.id, rounds: rounds.length, matches: matches.length, storagePath });
+}

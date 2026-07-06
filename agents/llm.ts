@@ -26,18 +26,35 @@ const KEY = process.env.OPENROUTER_API_KEY ?? fallback.OPENROUTER_API_KEY
 export interface LlmUsage { calls: number; inTokens: number; outTokens: number }
 export const usage: LlmUsage = { calls: 0, inTokens: 0, outTokens: 0 }
 
-export async function llm(system: string, user: string, maxTokens = 1800): Promise<string> {
-    if (!KEY) throw new Error('OPENROUTER_API_KEY not found (env, AFWar/.env, or flowzilla/.env.local)')
+export interface LlmOverride { key?: string; model?: string }
+
+// BYO agent keys (schema-002 §2): when a character's owner has model_tier
+// 'byo', narration for THEIR character rides their own OpenRouter key+model
+// instead of the house key. Judge/gazette/downtime calls never take an
+// override — those always stay on the house key (they're not "the
+// character's voice", they're neutral infrastructure). Any failure with an
+// override (bad key, rate limit, etc.) falls back to the house key+model
+// for that one call rather than failing the narration.
+export async function llm(system: string, user: string, maxTokens = 1800, override?: LlmOverride): Promise<string> {
+    const key = override?.key || KEY
+    const model = override?.model || MODEL
+    if (!key) throw new Error('OPENROUTER_API_KEY not found (env, AFWar/.env, or flowzilla/.env.local)')
     for (let attempt = 1; attempt <= 3; attempt++) {
         const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
-            headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
+            headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: MODEL, max_tokens: maxTokens,
+                model, max_tokens: maxTokens,
                 messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
             }),
         })
         if (!res.ok) {
+            // BYO override failed — retry the SAME attempt budget on the house
+            // key/model once, so a bad user-supplied key degrades gracefully
+            // instead of losing the narration entirely.
+            if (override?.key && attempt === 1) {
+                try { return await llm(system, user, maxTokens) } catch { /* fall through to normal retry/throw below */ }
+            }
             if (attempt === 3) throw new Error(`LLM ${res.status}: ${(await res.text()).slice(0, 300)}`)
             await new Promise(r => setTimeout(r, attempt * 2000))
             continue

@@ -13,11 +13,11 @@ export interface DowntimeCharacter {
 }
 
 export async function narrateDowntime(
-    character: DowntimeCharacter, recentCanon?: string
+    character: DowntimeCharacter, recentCanon?: string, canonNotes = ''
 ): Promise<{ title: string; body: string }> {
     const system = `You are the player-character agent for ${character.name} in AF WAR, a seasonal territory war in Hyper-Brooklyn.
 ${TONE}
-Write a DOWNTIME post — a short slice-of-life beat between rounds. No combat, no dice; just voice, texture, and the mundane weirdness of living in the Glome. First person or close third, your call, but it must sound like this specific character.`
+Write a DOWNTIME post — a short slice-of-life beat between rounds. No combat, no dice; just voice, texture, and the mundane weirdness of living in the Glome. First person or close third, your call, but it must sound like this specific character.${canonNotes}`
     const user = `CHARACTER: ${character.name} — ${character.bio}
 ${character.voice_notes ? `VOICE: ${character.voice_notes}` : ''}
 ${character.crewName ? `CREW: ${character.crewName}` : ''}
