@@ -57,7 +57,8 @@ function pagePrompt(panels: ComicPanel[], pageNo: number, totalPages: number, zo
             return `PANEL ${p.n} (${p.shot}): ${p.description}${p.sfx ? ` Large hand-lettered SFX: "${p.sfx}".` : ""} ${dialogue}`;
         })
         .join("\n");
-    return `A single complete COMIC BOOK PAGE (page ${pageNo} of ${totalPages}), ${panels.length} panels in a clean grid with black gutters, lettered speech balloons with legible text exactly as written.
+    const layout = panels.length === 1 ? 'ONE full-page SPLASH panel, cinematic, maximum impact' : `${panels.length} panels in a dynamic grid with black gutters (vary panel sizes for pacing)`;
+    return `A single complete COMIC BOOK PAGE (page ${pageNo} of ${totalPages}), ${layout}, lettered speech balloons with legible text exactly as written.
 SETTING: ${zoneBlurb}
 ${rows}
 STYLE: ${STYLE}
@@ -154,8 +155,20 @@ export async function renderMatchComic(
         ? `\nPERMANENT MARKS — these OVERRIDE the reference images and MUST be visible in every panel where the character appears: ${marks.join(" | ")}`
         : "";
 
+    // Page sizes vary 1-7 panels, averaging ~5 (Todd 7/6). The pool is
+    // weighted; a 1 is a full-page splash. Content-aware nudge: a panel with
+    // SFX at the front of a chunk earns splash odds.
+    const POOL = [1, 3, 4, 5, 5, 5, 5, 6, 6, 7, 7];
     const chunks: ComicPanel[][] = [];
-    for (let i = 0; i < panels.length && chunks.length < MAX_PAGES; i += 4) chunks.push(panels.slice(i, i + 4));
+    let i = 0;
+    while (i < panels.length && chunks.length < MAX_PAGES) {
+        let k = POOL[Math.floor(Math.random() * POOL.length)];
+        const remaining = panels.length - i;
+        if (remaining - k > 0 && remaining - k < 3) k = remaining; // no orphan 1-2 panel tail unless it's a closing splash
+        k = Math.min(k, remaining, 7);
+        chunks.push(panels.slice(i, i + k));
+        i += k;
+    }
 
     const refs = [sheetA, sheetB].filter((u): u is string => Boolean(u));
     const pageUrls: string[] = [];
