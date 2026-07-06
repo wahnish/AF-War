@@ -2,7 +2,7 @@
 // sim/out/ is the probe Todd reads. AFWAR_DRY=1 skips all LLM calls (engine
 // + maps + ledger only, $0).
 
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { makeRng } from '../engine/rng.js'
@@ -141,20 +141,45 @@ async function main() {
     writeFileSync(join(OUT, `map-finale.svg`), svgMap(s, s.round))
     console.log(`finale: ${finale.matches.length} matches — champion crew: ${names.get(s.finaleWinner!)}`)
 
-    // narrate everything (or skip in DRY)
+    // narrate everything (or skip in DRY). Resumable: previously narrated rooms
+    // (sim/out/rooms.json) are reused — a credit outage or crash costs only the
+    // remainder. A failed match narration degrades to dice-transcript-only.
+    const prior: MatchRoom[] = existsSync(join(OUT, 'rooms.json'))
+        ? JSON.parse(readFileSync(join(OUT, 'rooms.json'), 'utf8')) : []
+    const priorRecaps: string[] = existsSync(join(OUT, 'recaps.json'))
+        ? JSON.parse(readFileSync(join(OUT, 'recaps.json'), 'utf8')) : []
+    const roomKey = (round: number, m: MatchResult) => `${round}|${m.a}|${m.b}|${m.zoneId}`
+    const priorByKey = new Map(prior.filter(r => r.tellings?.length).map(r => [roomKey(r.round, r.result), r]))
+
     if (!DRY) {
         for (const rep of allRounds) {
             const tasks = rep.matches.map(m => async () => {
+                const cached = priorByKey.get(roomKey(rep.round, m))
+                if (cached) { rooms.push(cached); return }
                 const a = CAST.find(p => p.id === m.a)!, b = CAST.find(p => p.id === m.b)!
-                const [ta, tb] = await Promise.all([
-                    narrateMatch(a, b, m, rep.round), narrateMatch(b, a, m, rep.round),
-                ])
-                const verdict = await judgeMatch(ta, tb, m, a.name, b.name)
-                rooms.push({ round: rep.round, result: m, tellings: [ta, tb], verdict })
+                try {
+                    const [ta, tb] = await Promise.all([
+                        narrateMatch(a, b, m, rep.round), narrateMatch(b, a, m, rep.round),
+                    ])
+                    const verdict = await judgeMatch(ta, tb, m, a.name, b.name)
+                    rooms.push({ round: rep.round, result: m, tellings: [ta, tb], verdict })
+                } catch (e) {
+                    console.error(`  match ${m.a} vs ${m.b} narration failed: ${(e as Error).message.slice(0, 120)}`)
+                    rooms.push({ round: rep.round, result: m, tellings: [] })
+                }
             })
             await pool(tasks, 4)
-            const recap = await gazetteRecap(rep.round, rep.events, names)
-            recaps.push(`\n\n---\n\n## 📰 ROUND ${rep.round}${rep === finale ? ' — THE CONVERGENCE' : ''}\n\n${recap}`)
+            const roundIdx = allRounds.indexOf(rep)
+            let recap = priorRecaps[roundIdx]
+            if (!recap) {
+                try {
+                    recap = `\n\n---\n\n## 📰 ROUND ${rep.round}${rep === finale ? ' — THE CONVERGENCE' : ''}\n\n${await gazetteRecap(rep.round, rep.events, names)}`
+                } catch (e) {
+                    console.error(`  recap r${rep.round} failed: ${(e as Error).message.slice(0, 120)}`)
+                    recap = `\n\n---\n\n## 📰 ROUND ${rep.round}\n\n_The Gazette missed this edition (narration outage)._`
+                }
+            }
+            recaps.push(recap)
             // durable write after EVERY round — a downstream crash must never lose paid narration
             writeFileSync(join(OUT, 'rooms.json'), JSON.stringify(rooms, null, 2))
             writeFileSync(join(OUT, 'recaps.json'), JSON.stringify(recaps, null, 2))
