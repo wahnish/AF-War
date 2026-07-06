@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Character, CharacterPolicy, CharacterStats } from "@/lib/types";
+import type { Character, CharacterPolicy, CharacterStats, Season, Direction } from "@/lib/types";
 import type { Ability } from "@/lib/engine/dice";
 
 const ABILITIES: Ability[] = ["STR", "END", "DEX", "CHA", "INT"];
@@ -189,8 +189,197 @@ export default function BarracksClient({ initialCharacters }: { initialCharacter
                             <button className="btn" onClick={() => setEditing(toForm(c))}>
                                 Edit
                             </button>
+                            <DirectionForm character={c} />
                         </div>
                     ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function defaultDirection(): { gambit: string; tone_note: string; vp_budget: number; ability_lane: Ability } {
+    return { gambit: "", tone_note: "", vp_budget: 5, ability_lane: "STR" };
+}
+
+function DirectionForm({ character }: { character: Character }) {
+    const [season, setSeason] = useState<Season | null>(null);
+    const [existing, setExisting] = useState<Direction | null>(null);
+    const [form, setForm] = useState(defaultDirection());
+    const [open, setOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState("");
+    const [saved, setSaved] = useState(false);
+
+    useEffect(() => {
+        if (!open || season) return;
+        let cancelled = false;
+        setLoading(true);
+        fetch("/api/season/current")
+            .then((r) => r.json())
+            .then((json: { season: Season | null }) => {
+                if (cancelled) return;
+                setSeason(json.season);
+            })
+            .catch(() => {})
+            .finally(() => !cancelled && setLoading(false));
+        return () => {
+            cancelled = true;
+        };
+    }, [open, season]);
+
+    useEffect(() => {
+        if (!season?.state) return;
+        const round = season.state.round;
+        let cancelled = false;
+        const supabase = createClient();
+        supabase
+            .from("afwar_directions")
+            .select("*")
+            .eq("season_id", season.id)
+            .eq("round", round)
+            .eq("character_id", character.id)
+            .maybeSingle()
+            .then(({ data }: { data: Direction | null }) => {
+                if (cancelled) return;
+                if (data) {
+                    setExisting(data);
+                    setForm({
+                        gambit: data.gambit ?? "",
+                        tone_note: data.tone_note ?? "",
+                        vp_budget: data.vp_budget ?? 5,
+                        ability_lane: (data.ability_lane as Ability) ?? "STR",
+                    });
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [season?.id, season?.state?.round, character.id]);
+
+    async function save() {
+        if (!season) {
+            setError("No active season.");
+            return;
+        }
+        setSaving(true);
+        setError("");
+        setSaved(false);
+        const supabase = createClient();
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+            setError("Not signed in.");
+            setSaving(false);
+            return;
+        }
+
+        const round = season.state?.round ?? 0;
+        const payload = {
+            season_id: season.id,
+            round,
+            character_id: character.id,
+            director_id: user.id,
+            gambit: form.gambit,
+            tone_note: form.tone_note,
+            vp_budget: form.vp_budget,
+            ability_lane: form.ability_lane,
+        };
+
+        const { error } = existing
+            ? await supabase.from("afwar_directions").update(payload).eq("id", existing.id)
+            : await supabase.from("afwar_directions").insert(payload);
+
+        if (error) {
+            setError(error.message);
+        } else {
+            setSaved(true);
+        }
+        setSaving(false);
+    }
+
+    if (!open) {
+        return (
+            <button className="btn mt-2" onClick={() => setOpen(true)}>
+                🎬 Direction
+            </button>
+        );
+    }
+
+    return (
+        <div className="panel p-4 mt-3" style={{ borderColor: "var(--line-bright)" }}>
+            <div className="flex items-center justify-between mb-3">
+                <span className="tag-mono">
+                    🎬 DIRECTION {season?.state ? `· round ${season.state.round}` : ""}
+                </span>
+                <button className="tag-mono opacity-60" onClick={() => setOpen(false)}>
+                    close
+                </button>
+            </div>
+            {loading ? (
+                <p className="tag-mono opacity-60">loading…</p>
+            ) : !season ? (
+                <p className="tag-mono opacity-60">No active season yet.</p>
+            ) : (
+                <div className="flex flex-col gap-3">
+                    <div>
+                        <label className="field-label">Gambit</label>
+                        <input
+                            type="text"
+                            value={form.gambit}
+                            onChange={(e) => setForm({ ...form, gambit: e.target.value })}
+                            placeholder="e.g. bait them into the Gowanus, then run"
+                        />
+                    </div>
+                    <div>
+                        <label className="field-label">Tone note</label>
+                        <input
+                            type="text"
+                            value={form.tone_note}
+                            onChange={(e) => setForm({ ...form, tone_note: e.target.value })}
+                            placeholder="e.g. play it for pathos this time"
+                        />
+                    </div>
+                    <div>
+                        <label className="field-label">Ability lane</label>
+                        <select
+                            value={form.ability_lane}
+                            onChange={(e) => setForm({ ...form, ability_lane: e.target.value as Ability })}
+                            style={{ width: 160 }}
+                        >
+                            {ABILITIES.map((ab) => (
+                                <option key={ab} value={ab}>
+                                    {ab}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <span className="tag-mono block mb-1">VP budget: {form.vp_budget}</span>
+                        <input
+                            type="range"
+                            min={0}
+                            max={10}
+                            value={form.vp_budget}
+                            onChange={(e) => setForm({ ...form, vp_budget: Number(e.target.value) })}
+                        />
+                    </div>
+                    {error && (
+                        <p className="tag-mono" style={{ color: "var(--blood)" }}>
+                            {error}
+                        </p>
+                    )}
+                    {saved && (
+                        <p className="tag-mono" style={{ color: "var(--neon-lime)" }}>
+                            Direction saved for round {season.state?.round}.
+                        </p>
+                    )}
+                    <button className="btn btn-magenta" onClick={save} disabled={saving}>
+                        {saving ? "Saving…" : existing ? "Update Direction" : "Save Direction"}
+                    </button>
                 </div>
             )}
         </div>

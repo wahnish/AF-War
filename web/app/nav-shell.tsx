@@ -10,6 +10,7 @@ const LINKS = [
     { href: "/barracks", label: "BARRACKS" },
     { href: "/ledger", label: "LEDGER" },
     { href: "/guide", label: "GUIDE" },
+    { href: "/gm", label: "GM" },
 ];
 
 export default function NavShell({ children }: { children: React.ReactNode }) {

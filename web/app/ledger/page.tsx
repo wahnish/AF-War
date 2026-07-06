@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { SerializedSeasonState } from "@/lib/serialize";
 import type { CanonEvent } from "@/lib/engine/season";
-import type { Season } from "@/lib/types";
+import type { Season, Character } from "@/lib/types";
 
 async function getSeason(): Promise<Season | null> {
     const supabase = await createClient();
@@ -14,8 +14,18 @@ async function getSeason(): Promise<Season | null> {
     return (data as Season) ?? null;
 }
 
+async function getCloutLadder(): Promise<Character[]> {
+    const supabase = await createClient();
+    const { data } = await supabase
+        .from("afwar_characters")
+        .select("id,name,clout,crew_id")
+        .order("clout", { ascending: false })
+        .limit(10);
+    return (data as Character[]) ?? [];
+}
+
 export default async function LedgerPage() {
-    const season = await getSeason();
+    const [season, cloutLadder] = await Promise.all([getSeason(), getCloutLadder()]);
     const state = season?.state as SerializedSeasonState | null | undefined;
 
     if (!season || !state) {
@@ -87,6 +97,34 @@ export default async function LedgerPage() {
                         );
                     })}
                 </div>
+            </section>
+
+            <section className="mb-10">
+                <h2 className="text-2xl mb-3">CLOUT LADDER</h2>
+                {cloutLadder.length === 0 ? (
+                    <p className="tag-mono opacity-60">No entertainment scores yet. The Arbiter is unimpressed.</p>
+                ) : (
+                    <div className="panel divide-y" style={{ borderColor: "var(--line)" }}>
+                        {cloutLadder.map((c, i) => (
+                            <div
+                                key={c.id}
+                                className="flex items-center justify-between p-3"
+                                style={{ borderColor: "var(--line)" }}
+                            >
+                                <span>
+                                    <span className="tag-mono mr-3" style={{ color: "var(--neon-gold)" }}>
+                                        #{i + 1}
+                                    </span>
+                                    <strong>{c.name}</strong>{" "}
+                                    <span className="tag-mono opacity-60">({crewName(c.crew_id ?? undefined)})</span>
+                                </span>
+                                <span className="tag-mono" style={{ color: "var(--neon-magenta)" }}>
+                                    {c.clout}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </section>
 
             <section className="mb-10">
