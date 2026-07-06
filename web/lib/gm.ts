@@ -11,6 +11,7 @@ import { narrateMatch, judgeMatch, gazetteRecap } from "@/lib/agents/narrate";
 import type { Telling, Verdict } from "@/lib/agents/narrate";
 import { narrateDowntime } from "@/lib/agents/downtime";
 import type { Season, Character, Direction } from "@/lib/types";
+import type { CanonEvent } from "@/lib/engine/season";
 import { crewIntent } from "@/lib/agents/strategist";
 import { settleBets } from "@/lib/bets";
 import { maybeRenderComic } from "@/lib/comic";
@@ -18,6 +19,8 @@ import { maybeForgeItem } from "@/lib/loot";
 import { writeLetter } from "@/lib/agents/letters";
 import type { Telling as LetterTelling, Verdict as LetterVerdict } from "@/lib/agents/narrate";
 import { sendMail } from "@/lib/mail";
+import { llm, extractJson } from "@/lib/agents/llm";
+import { zoneById } from "@/lib/engine/map";
 
 export interface ResolveRoundResult {
     round: number;
@@ -280,6 +283,30 @@ export async function resolveRound(
                 : canonTelling.prose
             : `${aChar?.name ?? m.a} and ${bChar?.name ?? m.b} threw down — dice-only record, narration unavailable this round.`;
 
+        // Scar authoring (growth round, scars/barracks item): the WINNER's
+        // agent writes the permanent mark onto the LOSER, using the canon
+        // telling as source material. Best-effort — never blocks resolution.
+        const scarConsequence = m.consequence?.kind === "scar" ? m.consequence : null;
+        if (scarConsequence && aChar && bChar) {
+            try {
+                await authorScar(supabase, {
+                    round: report.round,
+                    zoneId: m.zoneId,
+                    winnerId: scarConsequence.authoredBy,
+                    loserId: scarConsequence.to,
+                    aChar,
+                    bChar,
+                    canonExcerpt: excerpt,
+                    canonEvent: report.events.find(
+                        (e): e is Extract<CanonEvent, { kind: "scar" }> =>
+                            e.kind === "scar" && e.pcId === scarConsequence.to && e.round === report.round
+                    ),
+                });
+            } catch (e) {
+                console.error(`[gm] authorScar failed for match ${m.a} vs ${m.b}:`, e);
+            }
+        }
+
         const { data: insertedPost } = await supabase
             .from("afwar_posts")
             .insert({
@@ -462,6 +489,68 @@ export async function resolveRound(
     }
 
     return { round: report.round, matches: report.matches.length, events: report.events.length, nowIso };
+}
+
+interface AuthorScarInput {
+    round: number;
+    zoneId: string;
+    winnerId: string;
+    loserId: string;
+    aChar: Character;
+    bChar: Character;
+    canonExcerpt: string;
+    canonEvent?: Extract<CanonEvent, { kind: "scar" }>;
+}
+
+/**
+ * Scar authoring (growth round, scars/barracks item): once a 'scar' stakes
+ * match is judged, the WINNER's agent writes ≤20 words, second person,
+ * permanent physical/uncanny mark onto the LOSER. Appends it to the loser's
+ * afwar_characters.scars jsonb array + bio, and patches the round's scar
+ * canon_event with the authored text. Uses the service client (caller
+ * already passes it — resolveRound always runs under service role) and the
+ * house key (llm() with no override — this is neutral infrastructure like
+ * judge/gazette, not "the character's own voice" in the BYO-key sense,
+ * though it's written to sound like the winner speaking).
+ */
+async function authorScar(supabase: SupabaseClient, input: AuthorScarInput): Promise<void> {
+    const { round, zoneId, winnerId, loserId, aChar, bChar, canonExcerpt, canonEvent } = input;
+    const winner = winnerId === aChar.id ? aChar : bChar;
+    const loser = loserId === aChar.id ? aChar : bChar;
+    const zone = zoneById(zoneId);
+
+    const system = `You are the player-character agent for ${winner.name} in AF WAR, a seasonal territory war in Hyper-Brooklyn.
+You just won a SCAR match — your character now marks the loser permanently, in your own hand.
+Write ONE short line, SECOND PERSON ("your ..."), addressed to ${loser.name}: a permanent, physical or uncanny mark, in the spirit of "your left eye now shows the Bazaar's shifting stalls." Twenty words or fewer. No preamble, no quotes, just the line.`;
+    const user = `ZONE: ${zone.name} — ${zone.blurb}
+WINNER (you): ${winner.name} — ${winner.bio ?? ""}
+LOSER (marked): ${loser.name} — ${loser.bio ?? ""}
+CANON TELLING OF THIS MATCH:
+${canonExcerpt}
+
+Return JSON only: {"text": "your ≤20-word second-person scar line"}`;
+    const out = await llm(system, user, 300);
+    const parsed = extractJson<{ text?: string }>(out);
+    const text = (parsed.text ?? "").trim();
+    if (!text) return;
+
+    const { data: loserRow } = await supabase
+        .from("afwar_characters")
+        .select("scars, bio")
+        .eq("id", loser.id)
+        .maybeSingle();
+    const existingScars = ((loserRow as { scars: unknown[] } | null)?.scars ?? []) as unknown[];
+    const existingBio = (loserRow as { bio: string | null } | null)?.bio ?? loser.bio ?? "";
+
+    const scarEntry = { round, authoredBy: winner.name, text };
+    const nextScars = [...existingScars, scarEntry];
+    const nextBio = `${existingBio}\n\nSCAR (authored by ${winner.name}, R${round}): ${text}`;
+
+    await supabase.from("afwar_characters").update({ scars: nextScars, bio: nextBio }).eq("id", loser.id);
+
+    if (canonEvent) {
+        canonEvent.text = text;
+    }
 }
 
 interface RoundLettersInput {

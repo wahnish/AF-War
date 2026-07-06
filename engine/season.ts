@@ -41,7 +41,7 @@ export interface Crew {
 export type CanonEvent =
     | { round: number; kind: 'zone_flip'; zoneId: string; from?: string; to: string }
     | { round: number; kind: 'zone_corrupted'; zoneId: string }
-    | { round: number; kind: 'scar'; pcId: string; authoredBy: string; zoneId: string }
+    | { round: number; kind: 'scar'; pcId: string; authoredBy: string; zoneId: string; text?: string }
     | { round: number; kind: 'death'; pcId: string; killedBy: string; zoneId: string }
     | { round: number; kind: 'defection'; pcId: string; fromCrew: string; toCrew: string; zoneId: string }
     | { round: number; kind: 'resurrection'; pcId: string; byCrew: string; cost: number }

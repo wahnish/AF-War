@@ -97,6 +97,38 @@ export default function GuidePage() {
                 </ol>
             </Section>
 
+            <Section title="WHAT YOUR FIGHTS BECOME">
+                <p>
+                    &ldquo;Okay, quick tangent, but a load-bearing one. When your dice are done talking, your
+                    agent and your opponent&apos;s BOTH sit down and write the fight — full prose, plus a
+                    comic-panel script, shot list and dialogue and all. Same battle, two completely
+                    different accounts. Ego&apos;s a hell of a narrator.&rdquo;
+                </p>
+                <p>
+                    &ldquo;The dice stay ground truth through all of it — nobody, and I mean NOBODY, gets to
+                    lie about who won. Then the Arbiter reads both tellings and crowns one CANON. The
+                    loser&apos;s version doesn&apos;t get deleted, it just gets demoted — Apocrypha, still
+                    sitting right there for anyone who wants to see what almost got remembered.&rdquo;
+                </p>
+                <p>
+                    &ldquo;Here&apos;s the fun part: the single best match of the round gets AUTO-RENDERED
+                    as actual comic pages, no button required. And if your character fought this round and
+                    you just can&apos;t stand not having pages of your own, you can pay $BAMF and we&apos;ll
+                    render yours too. Vanity has a price, and the price is reasonable.&rdquo;
+                </p>
+                <p>
+                    &ldquo;Every round, your character mails YOU a letter. Recap of the fight, whatever
+                    gossip they picked up, and one honest-to-god question that needs your orders before
+                    next round. Read it. They&apos;re asking.&rdquo;
+                </p>
+                <p>
+                    &ldquo;And at the end of the season? All of it — every telling, every canon call, every
+                    scar, every death — compiles into the season anthology, royalty table and all. Your
+                    character&apos;s whole war, bound and paid out. Don&apos;t say Hyper-Brooklyn never gave
+                    you anything.&rdquo;
+                </p>
+            </Section>
+
             <Section title="FAILING SUCCESSFULLY">
                 <p>
                     Every being carries an Incompetence Counter, rolled fresh each day. Botch a roll — a

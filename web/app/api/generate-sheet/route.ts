@@ -68,24 +68,49 @@ export async function POST(request: Request) {
         bio?: string;
         archetype?: string;
         model?: "nano-banana-2" | "gpt-image-2";
+        characterId?: string;
+        scars?: string[];
+        free?: boolean;
     };
     if (!body.bio) {
         return NextResponse.json({ error: "bio is required" }, { status: 400 });
     }
 
+    // Scars-regen free path (scars/barracks item): the client CLAIMS free,
+    // but we never trust that — only waive the charge if characterId is
+    // present AND the character's own scars column (loaded server-side) is
+    // genuinely non-empty. Anything short of that falls through to the
+    // normal charged pricing below.
+    let freeScarsRegen = false;
+    if (body.free === true && body.characterId) {
+        const { data: charRow } = await service
+            .from("afwar_characters")
+            .select("scars, owner_id")
+            .eq("id", body.characterId)
+            .maybeSingle();
+        const row = charRow as { scars: unknown[]; owner_id: string } | null;
+        if (row && row.owner_id === user.id && Array.isArray(row.scars) && row.scars.length > 0) {
+            freeScarsRegen = true;
+        }
+    }
+
     // Pricing (final polish round §1d): first sheet-gen per user is free,
     // every one after costs 25 $BAMF. Checked/charged BEFORE the fal call so
     // a failed generation never bills the user (see refund-on-failure below).
-    const usedFreebie = await hasLedgerReason(service, user.id, "sheet_gen");
+    // A verified scars regen (above) also skips the charge.
+    const usedFreebie = freeScarsRegen || (await hasLedgerReason(service, user.id, "sheet_gen"));
     let charged = false;
-    if (usedFreebie) {
+    if (usedFreebie && !freeScarsRegen) {
         const spend = await adjustBamf(service, user.id, -SHEET_GEN_COST, "sheet_gen");
         if (!spend.ok) return NextResponse.json({ error: spend.error ?? "insufficient $BAMF balance" }, { status: 400 });
         charged = true;
     }
 
     try {
-        const prompt = characterSheetPrompt({ name: body.name, bio: body.bio, archetype: body.archetype });
+        let prompt = characterSheetPrompt({ name: body.name, bio: body.bio, archetype: body.archetype });
+        if (body.scars?.length) {
+            prompt += `\n\nPERMANENT MARKS (must be visible): ${body.scars.join(" | ")}`;
+        }
         const url = body.model === "gpt-image-2" ? await gptImage2(prompt) : await nb2(prompt);
 
         if (!usedFreebie) {

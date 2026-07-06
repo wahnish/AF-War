@@ -34,6 +34,12 @@ export interface CharacterPolicy {
     blazeOfGloryIfDying: boolean
 }
 
+export interface ScarEntry {
+    round: number
+    authoredBy: string
+    text: string
+}
+
 export interface Character {
     id: string
     owner_id: string
@@ -47,7 +53,7 @@ export interface Character {
     voice_notes: string | null
     model_sheet_url: string | null
     status: 'active' | 'dead'
-    scars: string[]
+    scars: ScarEntry[]
     kills: number
     clout: number
     crew_id: string | null

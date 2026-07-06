@@ -4,11 +4,21 @@
 import { llm, extractJson } from './llm.js'
 import { TONE } from './narrate.js'
 
+// Mirrors web/lib/types.ts ScarEntry — the DB-authored scar shape
+// ({round, authoredBy, text}). Duplicated here rather than imported because
+// the root engine/agents tree is self-contained (no dependency on the web
+// app's types module; see sync-engine.mjs's copy-not-import design note).
+export interface ScarEntry {
+    round: number
+    authoredBy: string
+    text: string
+}
+
 export interface DowntimeCharacter {
     name: string
     bio: string
     voice_notes?: string | null
-    scars?: string[]
+    scars?: ScarEntry[]
     crewName?: string
 }
 
@@ -21,7 +31,7 @@ Write a DOWNTIME post — a short slice-of-life beat between rounds. No combat, 
     const user = `CHARACTER: ${character.name} — ${character.bio}
 ${character.voice_notes ? `VOICE: ${character.voice_notes}` : ''}
 ${character.crewName ? `CREW: ${character.crewName}` : ''}
-${character.scars?.length ? `SCARS: ${character.scars.join('; ')}` : ''}
+${character.scars?.length ? `SCARS: ${character.scars.map(s => s.text).join('; ')}` : ''}
 ${recentCanon ? `RECENT CANON (reference if it fits naturally): ${recentCanon}` : ''}
 
 Return JSON only: {"title": "short in-character headline, under 10 words", "body": "60-150 word slice-of-life post, ${character.name}'s voice"}`

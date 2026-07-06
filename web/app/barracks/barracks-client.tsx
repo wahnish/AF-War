@@ -226,6 +226,7 @@ export default function BarracksClient({ initialCharacters }: { initialCharacter
                             <div className="tag-mono mb-3">
                                 {c.power?.name} · Lv {c.power?.level} · kills {c.kills} · clout {c.clout}
                             </div>
+                            {c.scars?.length > 0 && <ScarsPanel character={c} onRegenerated={refresh} />}
                             <button className="btn" onClick={() => setEditing(toForm(c))}>
                                 Edit
                             </button>
@@ -442,6 +443,68 @@ function AvengeBar({ character }: { character: Character }) {
                     copy
                 </button>
             </div>
+        </div>
+    );
+}
+
+// Scars display + free regenerate (scars/barracks item): once a character
+// carries authored scars, show them (⚔ MARKED) and offer a free sheet
+// regen that bakes the marks into the model sheet — the /api/generate-sheet
+// route verifies server-side that scars genuinely exist before waiving the
+// $BAMF charge, so this button being visible doesn't need to be trusted.
+function ScarsPanel({ character, onRegenerated }: { character: Character; onRegenerated: () => void }) {
+    const [regenerating, setRegenerating] = useState(false);
+    const [error, setError] = useState("");
+
+    async function regenerate() {
+        setRegenerating(true);
+        setError("");
+        try {
+            const scarTexts = character.scars.map((s) => s.text);
+            const res = await fetch("/api/generate-sheet", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: character.name,
+                    bio: character.bio,
+                    archetype: character.archetype,
+                    characterId: character.id,
+                    scars: scarTexts,
+                    free: true,
+                }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error ?? "generation failed");
+            const supabase = createClient();
+            await supabase.from("afwar_characters").update({ model_sheet_url: json.url }).eq("id", character.id);
+            onRegenerated();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "generation failed");
+        } finally {
+            setRegenerating(false);
+        }
+    }
+
+    return (
+        <div className="panel p-3 mb-3" style={{ borderColor: "var(--blood)" }}>
+            <span className="tag-mono block mb-2" style={{ color: "var(--blood)" }}>
+                ⚔ MARKED
+            </span>
+            <ul className="flex flex-col gap-1 mb-2">
+                {character.scars.map((s, i) => (
+                    <li key={i} className="text-sm opacity-80">
+                        R{s.round} — {s.text}
+                    </li>
+                ))}
+            </ul>
+            <button className="btn" onClick={regenerate} disabled={regenerating}>
+                {regenerating ? "Rendering…" : "✦ Regenerate sheet with scars — FREE"}
+            </button>
+            {error && (
+                <p className="tag-mono mt-2" style={{ color: "var(--blood)" }}>
+                    {error}
+                </p>
+            )}
         </div>
     );
 }
