@@ -155,6 +155,9 @@ async function main() {
             await pool(tasks, 4)
             const recap = await gazetteRecap(rep.round, rep.events, names)
             recaps.push(`\n\n---\n\n## 📰 ROUND ${rep.round}${rep === finale ? ' — THE CONVERGENCE' : ''}\n\n${recap}`)
+            // durable write after EVERY round — a downstream crash must never lose paid narration
+            writeFileSync(join(OUT, 'rooms.json'), JSON.stringify(rooms, null, 2))
+            writeFileSync(join(OUT, 'recaps.json'), JSON.stringify(recaps, null, 2))
             console.log(`round ${rep.round} narrated (${rep.matches.length} matches) — llm calls so far: ${usage.calls}`)
         }
     }
@@ -206,10 +209,10 @@ ${dice}
 ${room.tellings.map(t => `## ${t.pcId === room.verdict?.canonPcId ? '✅ CANON — ' : '📜 Apocrypha — '}"${t.title}" (${names.get(t.pcId)}'s telling)
 ${t.prose}
 
-<details><summary>Comic script (${t.panels.length} panels)</summary>
+<details><summary>Comic script (${(t.panels ?? []).length} panels)</summary>
 
-${t.panels.map(p => `**Panel ${p.n}** [${p.shot}] ${p.description}${p.sfx ? ` _SFX: ${p.sfx}_` : ''}
-${p.dialogue.map(d => `> ${d.speaker} (${d.kind}): "${d.text}"`).join('\n')}`).join('\n\n')}
+${(t.panels ?? []).map(p => `**Panel ${p.n}** [${p.shot}] ${p.description}${p.sfx ? ` _SFX: ${p.sfx}_` : ''}
+${(p.dialogue ?? []).map(d => `> ${d.speaker} (${d.kind}): "${d.text}"`).join('\n')}`).join('\n\n')}
 </details>`).join('\n\n')}
 
 ## ⚖ The Arbiter's Verdict

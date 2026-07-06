@@ -65,7 +65,13 @@ Return JSON only:
 {"title": "punchy episode title", "prose": "your 250-400 word account, ${me.name}'s voice", "panels": [6-8 comic panels: {"n":1,"shot":"...","description":"...","dialogue":[{"speaker":"...","text":"...","kind":"speech|thought|shout|caption"}],"sfx":"optional"}]}`
     const out = await llm(system, user, 2400)
     const parsed = extractJson<Omit<Telling, 'pcId'>>(out)
-    return { pcId: me.id, ...parsed }
+    // normalize — LLM shape drift must never crash the bundle
+    const panels = (parsed.panels ?? []).map((p, i) => ({
+        n: p.n ?? i + 1, shot: p.shot ?? 'panel', description: p.description ?? '',
+        dialogue: (p.dialogue ?? []).map(d => ({ speaker: d.speaker ?? '', text: d.text ?? '', kind: d.kind ?? 'speech' as const })),
+        ...(p.sfx ? { sfx: p.sfx } : {}),
+    }))
+    return { pcId: me.id, title: parsed.title ?? 'Untitled', prose: parsed.prose ?? '', panels }
 }
 
 export interface Verdict {
