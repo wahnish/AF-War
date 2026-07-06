@@ -26,16 +26,19 @@ const CFG: SeasonConfig = {
     pcs: CAST,
     rounds: 4,
     corruptionPerRound: { 2: 1, 3: 2, 4: 3 },
-    startingItems: { 'gowanus': 'black-mayo-blade', 'awful-waffle': 'hypno-waffle', 'hinterlands': 'landwaster' },
+    startingItems: { 'gowanus': 'black-mayo-blade', 'brighton-beach': 'hypno-waffle', 'red-hook': 'landwaster' },
 }
 
 // ── zone layout for the SVG map (hand-placed, roughly geographic) ──────────
 const POS: Record<string, [number, number]> = {
-    'ellis-island': [80, 60], 'the-heights': [230, 90], 'stax': [330, 160], 'gowanus': [400, 250],
-    'nuhart': [330, 340], 'graves-end': [470, 350], 'the-nest': [560, 260], 'bazaar': [340, 60],
-    'wormhole': [470, 100], 'awful-waffle': [560, 160], 'arcades': [230, 180], 'chrono-bowl': [470, 180],
-    'pink-flamingo': [650, 200], 'coney': [700, 320], 'fringe': [760, 420], 'hinterlands': [560, 440],
-    'edb': [680, 480], 'hellmouth': [620, 360], 'af-hq': [520, 300], 'dodgers': [590, 60], 'monorail': [120, 480],
+    'greenpoint': [430, 60], 'williamsburg': [370, 130], 'east-williamsburg': [480, 140],
+    'bushwick': [530, 210], 'bed-stuy': [420, 230], 'downtown-dumbo': [250, 170],
+    'crown-heights': [430, 320], 'brownsville': [560, 320], 'canarsie': [640, 400],
+    'flatbush': [430, 420], 'east-flatbush': [540, 400], 'park-slope': [300, 320],
+    'gowanus': [250, 270], 'red-hook': [160, 300], 'sunset-park': [220, 390],
+    'bay-ridge': [150, 470], 'bensonhurst': [270, 480], 'gravesend': [370, 530],
+    'coney-island': [340, 610], 'brighton-beach': [450, 610], 'sheepshead-bay': [520, 540],
+    'ebbets-field': [360, 370], 'monorail': [80, 90],
 }
 const CREW_COLOR: Record<string, string> = {
     'elder-zombies': '#8soy', 'commandos': '#d9532b', 'rescue-squad': '#3d7bd9',
@@ -56,18 +59,18 @@ function svgMap(s: SeasonState, round: number): string {
     const nodes = ZONES.map(z => {
         const st = s.zones.get(z.id)!
         const [x, y] = POS[z.id]
-        const fill = st.corrupted ? '#1a0a1e' : st.controlledBy ? CREW_COLOR[st.controlledBy] : '#2b2b33'
-        const stroke = z.finale ? '#ffd700' : st.corrupted ? '#7a1fa2' : '#555'
+        const fill = st.beyond ? '#101014' : st.corrupted ? '#1a0a1e' : st.controlledBy ? CREW_COLOR[st.controlledBy] : '#2b2b33'
+        const stroke = z.finale ? '#ffd700' : st.corrupted ? '#7a1fa2' : st.beyond ? '#26262e' : '#555'
         const label = z.name.length > 18 ? z.name.slice(0, 17) + '…' : z.name
         return `<circle cx="${x}" cy="${y}" r="17" fill="${fill}" stroke="${stroke}" stroke-width="2.5"/>
 <text x="${x}" y="${y + 31}" font-size="10" fill="#ccc" text-anchor="middle" font-family="monospace">${label}</text>${st.corrupted ? `<text x="${x}" y="${y + 4}" font-size="12" text-anchor="middle">☠</text>` : ''}${st.itemOnGround ? `<text x="${x}" y="${y + 5}" font-size="11" text-anchor="middle">⚔</text>` : ''}`
     })
     const legend = CREWS.map((c, i) =>
-        `<circle cx="20" cy="${560 + i * 18}" r="6" fill="${CREW_COLOR[c.id]}"/><text x="32" y="${564 + i * 18}" font-size="11" fill="#ccc" font-family="monospace">${c.name}</text>`)
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 660" style="background:#15151c">
+        `<circle cx="20" cy="${620 + i * 18}" r="6" fill="${CREW_COLOR[c.id]}"/><text x="32" y="${624 + i * 18}" font-size="11" fill="#ccc" font-family="monospace">${c.name}</text>`)
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 720" style="background:#15151c">
 <text x="20" y="30" font-size="18" fill="#eee" font-family="monospace">HYPER-BROOKLYN — ROUND ${round}</text>
 ${lines.join('\n')}\n${nodes.join('\n')}\n${legend.join('\n')}
-<text x="20" y="545" font-size="11" fill="#7a1fa2" font-family="monospace">☠ = Primordial corruption   ⚔ = cursed item   gold ring = the Stadium</text>
+<text x="20" y="605" font-size="11" fill="#7a1fa2" font-family="monospace">☠ = corruption   ⚔ = cursed item   gold = Ebbets Field   dim = beyond the Glome</text>
 </svg>`
 }
 

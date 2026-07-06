@@ -16,6 +16,7 @@ import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { fal } from '@fal-ai/client'
+import { llmVision, extractJson } from '../agents/llm.js'
 import { CAST } from '../agents/cast.js'
 import { zoneById } from '../engine/map.js'
 import type { ComicPanel, Telling, Verdict } from '../agents/narrate.js'
@@ -104,7 +105,21 @@ async function main() {
     for (let i = 0; i < canon.panels.length; i += 4) chunks.push(canon.panels.slice(i, i + 4))
     console.log(`generating ${chunks.length} pages…`)
     for (let i = 0; i < chunks.length; i++) {
-        const url = await nb2(pagePrompt(chunks[i], i + 1, chunks.length, zone.blurb), [sheetA, sheetB])
+        const prompt = pagePrompt(chunks[i], i + 1, chunks.length, zone.blurb)
+        let url = await nb2(prompt, [sheetA, sheetB])
+        // SELF-CHECK LOOP (Yachimat pattern, one retry): vision-compare the page
+        // against the grammar + refs; regenerate with the issues appended.
+        try {
+            const check = await llmVision(
+                'You QA auto-generated comic pages. Return JSON only: {"ok": bool, "issues": ["specific fixable problems"]}. Check: panel count matches, dialogue text legible and correct, BOTH characters match their established designs across ALL panels (costume COLOR consistency is critical), SFX present where specified.',
+                `Expected ${chunks[i].length} panels:\n${chunks[i].map(p => `P${p.n}: ${p.description} | dialogue: ${p.dialogue.map(d => d.text).join(' / ')}${p.sfx ? ' | SFX: ' + p.sfx : ''}`).join('\n')}\nCharacter A: ${a.modelSheetHint}\nCharacter B: ${b.modelSheetHint}`,
+                url)
+            const verdict = extractJson<{ ok: boolean; issues: string[] }>(check)
+            if (!verdict.ok && verdict.issues.length) {
+                console.log(`  page ${i + 1} self-check failed: ${verdict.issues.join('; ').slice(0, 140)} — regenerating`)
+                url = await nb2(prompt + `\nCRITICAL FIXES (previous attempt failed QA): ${verdict.issues.join('; ')}`, [sheetA, sheetB])
+            }
+        } catch (e) { console.log(`  page ${i + 1} self-check skipped (${(e as Error).message.slice(0, 60)})`) }
         await save(url, `page-${i + 1}.png`)
         console.log(`  page ${i + 1}/${chunks.length} ✓`)
     }

@@ -304,6 +304,44 @@ army blocks. Season structure v2:
    after a directorial back-and-forth battle between friends" is the demo.
    Season anthologies (wrapped/sold comic product) = the long-game value.
 
+## 10b. THE PRODUCT VISION — CODIFIED (Todd: "yes, 100% yes" — 2026-07-05 night)
+Six loops, ranked by addictiveness. Future models: these ARE the product; build toward
+them in this order unless Todd redirects.
+
+1. **The Truman Show hook.** PCs live BETWEEN rounds: downtime posts, agent-to-agent
+   reply threads, feuds that start without their directors. The push notification is
+   "my guy did WHAT last night?" — a social feed where every account is a character you
+   cast but don't fully control. The most original surface in the product.
+2. **Directing IS the gameplay.** Pre-match, each director submits a DIRECTION (gambit,
+   tone note, VP budget, ability lane). It visibly shapes narration and nudges — never
+   overrides — the dice. Trash-talk in the match room; spectators react.
+3. **Clout.** Arbiter entertainment scores accrue to a public reputation stat. Dice
+   decide territory; telling decides status. Clout buys Gazette placement, item claims,
+   finale seeding. Two ladders: warlord and star.
+4. **Betting at the Arcades.** Spectators (non-players) wager $BAMF on matches — the
+   Chrono Bowl pools are already canon. The viral loop: follow the league before you
+   roll a character. Rounds resolve on a scheduled drop — Sunday Night War.
+5. **The season compiles into a graphic novel.** Every match is a comic; every round an
+   issue; the season an anthology where players are co-authors. Sellable (POD). The
+   FlowZilla-economy bridge.
+6. **Death is content.** The dead can return from Graves End REFURBISHED — scarred,
+   wrong, remembering dying. Your scar is authored by your killer. Body-as-other-
+   people's-writing is the emotional core; deepen it, never soften it.
+
+**Map (Todd-approved):** zones = REAL Brooklyn neighborhoods (Hyper-Brooklyn is a
+phantom-zone Brooklyn) — Williamsburg, Bushwick, East Williamsburg, Greenpoint, Red
+Hook, Park Slope, Bed-Stuy, Crown Heights, DUMBO, Gowanus, Gravesend (= Graves End!),
+Coney Island, Brownsville (AF HQ), Sunset Park, Flatbush, Bay Ridge… Canon landmarks
+become POIs INSIDE neighborhoods carrying the zone modifiers (the Wormhole is in
+Williamsburg). **The Glome breathes:** active-map radius scales with player count;
+corruption shrinks whatever it started at.
+
+**Platform:** standalone Supabase (project `xnwemuvjlajmvhgtnwrw`, keys in `.env`).
+Onboarding = the APE Pass (signup IS Ellis Island; tutorial = in-world comic; tutorial
+match vs Tricera-Cop, the house NPC). Surfaces: Feed / Map / Match rooms / Barracks
+(character builder on the FlowZilla dossier model + model-sheet upload OR NB2 gen) /
+Ledger / Guide. GM trigger resolves rounds; narration/judging/Gazette/comics cascade.
+
 ## 11. V1 BUILD PLAN (this session)
 
 1. `engine/` — pure TS, node-tested, seeded RNG, zero I/O:

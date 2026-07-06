@@ -45,7 +45,7 @@ describe('map', () => {
         const order = bfsCorruptionOrder(r => r)
         expect(new Set(order).size).toBe(order.length)
         expect(order.length).toBe(ZONES.filter(z => !z.finale).length)
-        expect(order).not.toContain('dodgers')
+        expect(order).not.toContain('ebbets-field')
     })
 })
 
@@ -75,7 +75,7 @@ describe('season', () => {
         }
         const corrupted = [...s.zones.values()].filter(z => z.corrupted).length
         expect(corrupted).toBe(1 + 2 + 3)
-        expect(s.zones.get('dodgers')!.corrupted).toBe(false)
+        expect(s.zones.get('ebbets-field')!.corrupted).toBe(false)
         const finale = playConvergence(s)
         expect(s.finished).toBe(true)
         expect(s.finaleWinner).toBeDefined()
@@ -86,7 +86,7 @@ describe('season', () => {
         const s = setupSeason(CFG)
         for (const crew of s.crews.keys()) {
             const targets = attackableZones(s, crew)
-            expect(targets).not.toContain('dodgers')
+            expect(targets).not.toContain('ebbets-field')
             for (const t of targets) expect(s.zones.get(t)!.controlledBy).not.toBe(crew)
         }
     })
@@ -144,7 +144,7 @@ describe('match integration', () => {
             const rng = makeRng('m' + i)
             const a: MatchPC = { ...pcDef('a1', 'x'), hp: 10, vp: 10, incompetence: 5 } as MatchPC
             const b: MatchPC = { ...pcDef('b1', 'y'), hp: 10, vp: 10, incompetence: 5 } as MatchPC
-            const r = runMatch(rng, 'bazaar', 'skirmish', a, b)
+            const r = runMatch(rng, 'bed-stuy', 'skirmish', a, b)
             expect(['a1', 'b1']).toContain(r.winner)
             expect(r.exchanges.length).toBeGreaterThanOrEqual(2)
             expect(r.exchanges.length).toBeLessThanOrEqual(5)
@@ -155,10 +155,29 @@ describe('match integration', () => {
             const rng = makeRng('bm' + i)
             const a: MatchPC = { ...pcDef('a1', 'x'), hp: 10, vp: 10, incompetence: 5, itemId: 'black-mayo-blade' } as MatchPC
             const b: MatchPC = { ...pcDef('b1', 'y'), hp: 10, vp: 10, incompetence: 5 } as MatchPC
-            const r = runMatch(rng, 'bazaar', 'skirmish', a, b)
+            const r = runMatch(rng, 'bed-stuy', 'skirmish', a, b)
             expect(r.stakes).toBe('death')
             expect(r.consequence?.kind).toBe('death')
             return
+        }
+    })
+})
+
+describe('the Glome breathes', () => {
+    it('active map scales with player count and stays contiguous around the finale', () => {
+        const small = setupSeason({ ...CFG, playerCount: 2 })
+        const big = setupSeason({ ...CFG, playerCount: 20 })
+        const activeCount = (s: ReturnType<typeof setupSeason>) => [...s.zones.values()].filter(z => !z.beyond).length
+        expect(activeCount(small)).toBeLessThan(activeCount(big))
+        expect(activeCount(small)).toBeGreaterThanOrEqual(8)
+        expect(small.zones.get('ebbets-field')!.beyond).toBeFalsy()
+        expect(small.zones.get('gowanus')!.beyond).toBeFalsy()
+    })
+    it('crews never spawn beyond the Glome; attacks never target beyond', () => {
+        const s = setupSeason({ ...CFG, playerCount: 2 })
+        for (const c of s.crews.values()) expect(s.zones.get(c.zones[0])!.beyond).toBeFalsy()
+        for (const crew of s.crews.keys()) for (const t of attackableZones(s, crew)) {
+            expect(s.zones.get(t)!.beyond).toBeFalsy()
         }
     })
 })

@@ -57,3 +57,11 @@ Todd reviews; anything he overrules gets re-implemented.
   its best fighter (kills, then biggest die) to Dodgers Stadium: single-elimination
   DEATH matches, seeded bracket. Champion's crew +8 points; season winner = points
   (zones + kills + finale bonus).
+
+- **R16 (Todd, 7/5 night): REAL BROOKLYN MAP + THE GLOME BREATHES.** Zones are real
+  neighborhoods (Hyper-Brooklyn = phantom-zone Brooklyn); canon landmarks are POIs
+  inside them carrying the terrain personality. Finale = phantom Ebbets Field.
+  Active map = contiguous BFS region around the finale sized max(8, 6+ceil(players×1.2));
+  zones outside are "beyond the Glome" (unplayable, dim on the map). Corruption BFS
+  is restricted to the active Glome. Nuhart→Greenpoint, Graves End→Gravesend,
+  AF HQ→Brownsville, Wormhole→Williamsburg, Awful Waffle→Brighton Beach, etc.

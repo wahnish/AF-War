@@ -3,10 +3,10 @@
 // allocation → resolution → consequences → canon events → scoring.
 // The engine is I/O-free; agents plug in through RoundIntent.
 
-import { Rng, makeRng, pick, shuffle, rollDie } from './rng.js'
-import { ABILITIES, Ability, Die, Stats, rollIncompetence, DefensePolicy, PowerPick } from './dice.js'
-import { ZONES, Zone, zoneById, bfsCorruptionOrder, corruptionSchedule, glomeZones, CORRUPTION_SOURCE } from './map.js'
-import { MatchPC, MatchResult, Stakes, runMatch, ITEMS } from './match.js'
+import { Rng, makeRng, pick, shuffle, rollDie } from './rng'
+import { ABILITIES, Ability, Die, Stats, rollIncompetence, DefensePolicy, PowerPick } from './dice'
+import { ZONES, Zone, zoneById, bfsCorruptionOrder, corruptionSchedule, glomeZones, CORRUPTION_SOURCE } from './map'
+import { MatchPC, MatchResult, Stakes, runMatch, ITEMS } from './match'
 
 export interface PCDef {
     id: string

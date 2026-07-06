@@ -80,3 +80,23 @@ export async function pool<T>(items: (() => Promise<T>)[], limit = 5): Promise<T
     await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
     return results
 }
+
+/** Vision call: judge an image against instructions (self-check loop). */
+export async function llmVision(system: string, user: string, imageUrl: string, maxTokens = 500): Promise<string> {
+    if (!KEY) throw new Error('OPENROUTER_API_KEY not found')
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            model: MODEL, max_tokens: maxTokens,
+            messages: [
+                { role: 'system', content: system },
+                { role: 'user', content: [{ type: 'text', text: user }, { type: 'image_url', image_url: { url: imageUrl } }] },
+            ],
+        }),
+    })
+    if (!res.ok) throw new Error(`LLM vision ${res.status}: ${(await res.text()).slice(0, 200)}`)
+    const body = await res.json() as { choices?: { message?: { content?: string } }[] }
+    usage.calls++
+    return body.choices?.[0]?.message?.content ?? ''
+}

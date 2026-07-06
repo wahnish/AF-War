@@ -1,0 +1,238 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Special+Elite&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+    /* Hyper-Brooklyn palette: night sky over the Glome, tabloid ink, corruption bleed */
+    --void: #07060b;
+    --void-2: #0d0b14;
+    --paper: #f2ecd9;
+    --ink: #1a1610;
+    --neon-magenta: #ff2fb0;
+    --neon-cyan: #33f6e8;
+    --neon-lime: #c8ff3d;
+    --neon-gold: #ffcf40;
+    --corrupt: #6b1fb0;
+    --corrupt-dark: #1a0a2e;
+    --blood: #ff3b3b;
+    --line: rgba(255, 255, 255, 0.09);
+    --line-bright: rgba(255, 255, 255, 0.2);
+
+    --font-display: "Bebas Neue", "Arial Narrow", sans-serif;
+    --font-tabloid: "Special Elite", "Courier New", monospace;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+}
+
+body {
+    background: var(--void);
+    color: #e8e4f0;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ambient background texture: faint scanlines + a corruption bloom in the corner */
+body {
+    background-image:
+        radial-gradient(ellipse 900px 600px at 85% -10%, rgba(107, 31, 176, 0.25), transparent 60%),
+        radial-gradient(ellipse 700px 500px at -10% 110%, rgba(255, 47, 176, 0.12), transparent 60%),
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px);
+    background-attachment: fixed;
+}
+
+a {
+    color: inherit;
+}
+
+h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+    font-weight: 400;
+}
+
+::selection {
+    background: var(--neon-magenta);
+    color: var(--void);
+}
+
+/* thin neon scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--void-2); }
+::-webkit-scrollbar-thumb { background: var(--corrupt); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: var(--neon-magenta); }
+
+/* ── shared primitives ──────────────────────────────────────────────── */
+
+.wordmark {
+    font-family: var(--font-display);
+    font-size: 1.9rem;
+    letter-spacing: 0.06em;
+    background: linear-gradient(90deg, var(--neon-magenta), var(--neon-cyan));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 30px rgba(255, 47, 176, 0.35);
+}
+
+.tag-mono {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #9b93b5;
+}
+
+.panel {
+    background: var(--void-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.65em 1.1em;
+    border: 1px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    background: rgba(51, 246, 232, 0.06);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.btn:hover {
+    background: var(--neon-cyan);
+    color: var(--void);
+    box-shadow: 0 0 20px rgba(51, 246, 232, 0.5);
+}
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.btn-magenta {
+    border-color: var(--neon-magenta);
+    color: var(--neon-magenta);
+    background: rgba(255, 47, 176, 0.06);
+}
+.btn-magenta:hover {
+    background: var(--neon-magenta);
+    color: var(--void);
+    box-shadow: 0 0 20px rgba(255, 47, 176, 0.5);
+}
+
+.field-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--neon-cyan);
+    margin-bottom: 0.4em;
+}
+
+input[type="text"], input[type="email"], input[type="number"], textarea, select {
+    width: 100%;
+    background: var(--void);
+    border: 1px solid var(--line-bright);
+    color: #e8e4f0;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    padding: 0.6em 0.7em;
+    border-radius: 2px;
+}
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 0 1px var(--neon-cyan);
+}
+textarea { resize: vertical; }
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.35em 0.8em;
+    border: 1px solid var(--line-bright);
+    border-radius: 999px;
+    color: #b8b0d0;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    background: transparent;
+}
+.chip[data-active="true"] {
+    border-color: var(--neon-lime);
+    color: var(--neon-lime);
+    background: rgba(200, 255, 61, 0.08);
+}
+.chip:hover { border-color: var(--neon-lime); }
+
+/* newspaper clipping styling for Gazette posts */
+.clipping {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-tabloid);
+    padding: 1.6em 1.8em;
+    border-radius: 1px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.1);
+    transform: rotate(-0.4deg);
+    position: relative;
+}
+.clipping::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(0,0,0,0.06) 1px, transparent 1px);
+    background-size: 3px 3px;
+    pointer-events: none;
+    opacity: 0.5;
+}
+.clipping h3 {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    line-height: 1.05;
+    letter-spacing: 0.01em;
+}
+
+.scanline-divider {
+    height: 1px;
+    background: repeating-linear-gradient(90deg, var(--line-bright) 0 6px, transparent 6px 12px);
+    margin: 1.2em 0;
+}
+
+.canon-badge {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--void);
+    background: var(--neon-gold);
+    padding: 0.2em 0.6em;
+    border-radius: 2px;
+    box-shadow: 0 0 12px rgba(255, 207, 64, 0.5);
+}
+
+.apocrypha-badge {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #9b93b5;
+    border: 1px solid var(--line-bright);
+    padding: 0.2em 0.6em;
+    border-radius: 2px;
+}
