@@ -360,3 +360,33 @@ Ledger / Guide. GM trigger resolves rounds; narration/judging/Gazette/comics cas
    (dice transcript + dueling narratives + grammar), 1 rendered comic.
 5. **The probe (Todd reads):** is the strategy real? do dice-constrained duels feel
    like W4R? does the tone land (§10.3)? does the auto-comic wow?
+
+## 10c. ECONOMICS — CODIFIED (discussion w/ Todd 2026-07-05 late; design directives)
+
+**Cost scaling (the day-1 answer): sell agency, never dice.** Dice are ground truth and
+cost $0 — only narration costs money, so cost scales with content quality, not gameplay.
+Tiers: FREE (house cheap model, rate-limited) · BYO-KEY (player's own OpenRouter key —
+their agent, their dime; Todd's marginal cost ≈ 0; SHIPPED in the sweetening round) ·
+PREMIUM sub later (house pays top model + comic rungs included). Honesty rule: better
+models buy VOICE, never victory — judges score blind; the dice don't care what your
+narrator cost.
+
+**Monetization (the alignment thesis): players own their characters' IP; the platform
+owns the compilation.** The Pudgy-Penguins playbook applied to narrative:
+1. **The anthology is the flywheel.** Season → auto-compiled graphic novel → sold
+   print/digital → ROYALTY SPLIT with directors of featured characters — and placement
+   is earned by CLOUT, so the entertainment score literally becomes a royalty share.
+   Player self-interest, monetization, and game quality are the same number.
+2. **$BAMF as the sink:** spectators buy it to bet at the Arcades and TIP directors
+   whose tellings they loved (creator-economy cut). Betting freemium keeps non-players
+   engaged; they're the future player funnel.
+3. **Sell rungs, seats, cosmetics:** match upgrades to full comic/video (FlowZilla
+   margin), season entry fees w/ prize pools (tournament economics), model-sheet
+   regens/variants, merch for characters that hit fame thresholds.
+4. **NEVER SELL:** dice outcomes, stats, territory. The moment power is purchasable,
+   the Ledger is a lie and the game dies.
+
+**Canon Cast (Todd's lore-consistency lever):** admin-editable NPC/judge roster with
+CANON NOTES — dated behavior corrections ("Raze never apologizes; he issues
+corrections") injected into every prompt that voices that character. A memory system
+for characters; grows toward CrabSpace-style persistent identity.
