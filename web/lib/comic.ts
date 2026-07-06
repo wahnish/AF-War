@@ -18,7 +18,7 @@ import { llmVision, extractJson } from "./agents/llm";
 const STYLE =
     "Gritty 1990s American comic book art, bold confident inks, flat colors with neon accents, retro-futuristic Hyper-Brooklyn (Venture-Brothers-adjacent adult animation energy played straight). Halftone texture, dramatic lighting.";
 
-const MAX_PAGES = 2; // budget guard: max 2 pages (8 panels)
+const MAX_PAGES = 5; // Todd 7/6: comics are 1-5 pages (grammar-driven, 4 panels/page)
 
 interface ComicPanel {
     n: number;
@@ -44,7 +44,7 @@ async function nb2(prompt: string, refs: string[] = [], aspect = "2:3"): Promise
     return url;
 }
 
-function pagePrompt(panels: ComicPanel[], pageNo: number, totalPages: number, zoneBlurb: string): string {
+function pagePrompt(panels: ComicPanel[], pageNo: number, totalPages: number, zoneBlurb: string, marksNote = ''): string {
     const rows = panels
         .map((p) => {
             const dialogue = p.dialogue
@@ -61,7 +61,7 @@ function pagePrompt(panels: ComicPanel[], pageNo: number, totalPages: number, zo
 SETTING: ${zoneBlurb}
 ${rows}
 STYLE: ${STYLE}
-The two main characters MUST match the reference images exactly (costume, silhouette, colors).`;
+The two main characters MUST match the reference images exactly (costume, silhouette, colors).${marksNote}`;
 }
 
 async function uploadPng(
@@ -88,9 +88,11 @@ export interface ComicRenderInput {
     aName: string;
     aBio: string;
     aSheetUrl: string | null;
+    aScars?: ({ text?: string } | string)[];
     bName: string;
     bBio: string;
     bSheetUrl: string | null;
+    bScars?: ({ text?: string } | string)[];
 }
 
 /**
@@ -141,6 +143,17 @@ export async function renderMatchComic(
     );
 
     const panels = input.canonTelling.panels as unknown as ComicPanel[];
+    // LORE OVERRIDES REFS (Todd 7/6): scars are canon; a model sheet that
+    // predates a scar must not win. Inject permanent marks at prompt level.
+    const marks: string[] = [];
+    for (const [nm, sc] of [[input.aName, input.aScars], [input.bName, input.bScars]] as const) {
+        const texts = (sc ?? []).map((s) => (typeof s === "string" ? s : s?.text)).filter(Boolean);
+        if (texts.length) marks.push(`${nm}: ${texts.join("; ")}`);
+    }
+    const marksNote = marks.length
+        ? `\nPERMANENT MARKS — these OVERRIDE the reference images and MUST be visible in every panel where the character appears: ${marks.join(" | ")}`
+        : "";
+
     const chunks: ComicPanel[][] = [];
     for (let i = 0; i < panels.length && chunks.length < MAX_PAGES; i += 4) chunks.push(panels.slice(i, i + 4));
 
@@ -148,7 +161,7 @@ export async function renderMatchComic(
     const pageUrls: string[] = [];
 
     for (let i = 0; i < chunks.length; i++) {
-        const prompt = pagePrompt(chunks[i], i + 1, chunks.length, zone.blurb);
+        const prompt = pagePrompt(chunks[i], i + 1, chunks.length, zone.blurb, marksNote);
         let url = await nb2(prompt, refs);
         try {
             const check = await llmVision(

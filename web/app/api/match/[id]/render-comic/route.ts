@@ -76,9 +76,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             aName: aChar.name,
             aBio: aChar.bio ?? "",
             aSheetUrl: aChar.model_sheet_url,
+            aScars: aChar.scars ?? [],
             bName: bChar.name,
             bBio: bChar.bio ?? "",
             bSheetUrl: bChar.model_sheet_url,
+            bScars: bChar.scars ?? [],
         });
 
         if (!pages.length) {
