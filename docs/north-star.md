@@ -81,3 +81,27 @@ the game exists so every character, every story, every weird little guy with a l
 gets to matter:*
 
 **SO THAT OTHERS MAY LIVE.**
+
+---
+
+## ADDENDUM (Todd + Fable, 2026-07-06 — the Bridge and the Pipeline, resolved)
+
+**The Bridge's entry point IS the Universe continuity graph** (Todd's call, confirmed).
+AF WAR's `canon_events` are already continuity notes in everything but table name; the
+FlowZilla universe graph already has arcs-lanes × story-time kanban, the Chekhov board,
+world-state-at-time, VAULT export — and crucially **F1 canon-to-gen** ([Canon:…]
+suffixes in resolveHandles). So the bridge is a MAPPING, not a build: season → arc lanes
+(one per crew) · rounds → story-time · canon_events → confirmed continuity notes
+(scars/items flagged 🎨 visual) · characters → assets w/ model sheets. The moment canon
+lands in the graph, FlowZilla's EXISTING machinery conditions all generation on it.
+Zero new gen code. The game's world-state literally starts art-directing the show.
+
+**The Pipeline's runtime IS Buddy — and the showrunner agent is named EISNER.**
+"Without guidance" means without OPERATION, not without taste: the tone contract, canon
+notes, and a director approval queue are the guidance. Buddy already has the three
+primitives (state reads · action bridge w/ materialize/reorder verbs · STAGED generation
+w/ human approval). Eisner = a Buddy persona with producer verbs: reads season canon +
+canon tellings → writes WR beats → ✦ Materialize → storyboard/comicref → video per shot
+→ Compose assembly — staged-with-approval first (the parked-cluster probe pattern),
+autonomy dial later. The name is earned: the stray git identity that once blocked our
+deploys becomes the agent that ships our episodes. Will Eisner would approve.
