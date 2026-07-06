@@ -21,6 +21,7 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const hideChrome = pathname?.startsWith("/login");
     const [bamf, setBamf] = useState<number | null>(null);
+    const [faucetToast, setFaucetToast] = useState<string | null>(null);
 
     useEffect(() => {
         if (hideChrome) return;
@@ -35,6 +36,32 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
             cancelled = true;
         };
     }, [hideChrome, pathname]);
+
+    // Daily $BAMF faucet (final polish round §1a): fired once per session
+    // mount (not on every pathname change — the route itself is idempotent
+    // per UTC day, but there's no reason to hit it on every nav). Shows a
+    // toast + bumps the displayed balance when the faucet actually grants.
+    useEffect(() => {
+        if (hideChrome) return;
+        let cancelled = false;
+        fetch("/api/bamf/faucet", { method: "POST" })
+            .then((r) => r.json())
+            .then((json: { granted?: boolean; balance?: number; error?: string }) => {
+                if (cancelled || json.error) return;
+                if (typeof json.balance === "number") setBamf(json.balance);
+                if (json.granted) {
+                    setFaucetToast("+25 $BAMF — daily faucet");
+                    setTimeout(() => !cancelled && setFaucetToast(null), 5000);
+                }
+            })
+            .catch(() => {
+                // not signed in yet, or offline — silently skip, the balance
+                // fetch above is the source of truth for display
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [hideChrome]);
 
     async function logout() {
         const supabase = createClient();
@@ -93,6 +120,21 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
             <footer className="tag-mono text-center py-6 opacity-50">
                 the Glome breathes · dice are ground truth · your body is other people&apos;s writing
             </footer>
+            {faucetToast && (
+                <div
+                    className="panel px-4 py-3 tag-mono"
+                    style={{
+                        position: "fixed",
+                        bottom: 24,
+                        right: 24,
+                        color: "var(--neon-gold)",
+                        borderColor: "var(--neon-gold)",
+                        boxShadow: "0 0 20px rgba(255,207,64,0.2)",
+                    }}
+                >
+                    💰 {faucetToast}
+                </div>
+            )}
         </div>
     );
 }

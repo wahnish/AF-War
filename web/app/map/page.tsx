@@ -2,6 +2,22 @@ import { ZONES } from "@/lib/engine/map";
 import { coordFor } from "@/lib/zoneLayout";
 import type { SerializedSeasonState } from "@/lib/serialize";
 import type { Season } from "@/lib/types";
+import { createClient } from "@/lib/supabase/server";
+
+interface GroundItem {
+    zone_id: string;
+    name: string;
+}
+
+async function getGroundItems(seasonId: string): Promise<GroundItem[]> {
+    const supabase = await createClient();
+    const { data } = await supabase
+        .from("afwar_items")
+        .select("zone_id, name")
+        .eq("season_id", seasonId)
+        .eq("status", "ground");
+    return (data as GroundItem[] | null) ?? [];
+}
 
 const CREW_COLORS = [
     "#ff2fb0", // neon-magenta
@@ -48,6 +64,12 @@ export default async function MapPage() {
     const crewColor = new Map(crewIds.map((id, i) => [id, CREW_COLORS[i % CREW_COLORS.length]]));
 
     const finaleId = ZONES.find((z) => z.finale)?.id;
+
+    // Season loot (final polish round §4): afwar_items ground drops are the
+    // display+lore layer over the engine's own zones[zid].itemOnGround —
+    // KNOWN SEAM, the two aren't unified (see web/lib/loot.ts comment).
+    const groundItems = await getGroundItems(season.id);
+    const groundItemByZone = new Map(groundItems.map((it) => [it.zone_id, it.name]));
 
     return (
         <div>
@@ -123,6 +145,18 @@ export default async function MapPage() {
                                 )}
                                 {!corrupted && controlledBy && (
                                     <circle cx={x} cy={y} r={7} fill={color} />
+                                )}
+                                {!corrupted && groundItemByZone.has(z.id) && (
+                                    <text
+                                        x={x}
+                                        y={y - (isFinale ? 34 : 28)}
+                                        textAnchor="middle"
+                                        fontSize={11}
+                                        fontFamily="var(--font-mono)"
+                                        fill="var(--neon-gold)"
+                                    >
+                                        ⚔ {groundItemByZone.get(z.id)}
+                                    </text>
                                 )}
                                 <text
                                     x={x}

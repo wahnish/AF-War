@@ -6,7 +6,7 @@ import type { Season } from "@/lib/types";
 export default function GmClient() {
     const [season, setSeason] = useState<Season | null>(null);
     const [loadingSeason, setLoadingSeason] = useState(true);
-    const [busy, setBusy] = useState<"resolve" | "downtime" | "start" | "anthology" | null>(null);
+    const [busy, setBusy] = useState<"resolve" | "downtime" | "start" | "anthology" | "tick" | "forge" | null>(null);
     const [result, setResult] = useState<string>("");
     const [error, setError] = useState("");
     const [agentIntents, setAgentIntents] = useState(false);
@@ -28,7 +28,7 @@ export default function GmClient() {
         refreshSeason();
     }, []);
 
-    async function call(kind: "resolve" | "downtime" | "start" | "anthology") {
+    async function call(kind: "resolve" | "downtime" | "start" | "anthology" | "tick" | "forge") {
         setBusy(kind);
         setError("");
         setResult("");
@@ -40,9 +40,14 @@ export default function GmClient() {
                     ? "/api/gm/downtime"
                     : kind === "anthology"
                     ? "/api/gm/anthology"
+                    : kind === "tick"
+                    ? "/api/gm/tick"
+                    : kind === "forge"
+                    ? "/api/gm/forge"
                     : "/api/gm/start";
+            const method = kind === "tick" ? "GET" : "POST";
             const res = await fetch(path, {
-                method: "POST",
+                method,
                 headers: { "Content-Type": "application/json" },
                 body: kind === "resolve" ? JSON.stringify({ agentIntents }) : undefined,
             });
@@ -78,6 +83,15 @@ export default function GmClient() {
                 )}
             </div>
 
+            <div className="panel p-4 mb-6" style={{ borderColor: "var(--neon-cyan)" }}>
+                <p className="tag-mono mb-3" style={{ color: "var(--neon-cyan)" }}>
+                    ⏰ Autonomous mode: cron daily at 15:00 UTC (set CRON_SECRET in Vercel)
+                </p>
+                <button className="btn" onClick={() => call("tick")} disabled={busy !== null || !season}>
+                    {busy === "tick" ? "Ticking…" : "▶ Tick now"}
+                </button>
+            </div>
+
             <label className="flex items-center gap-2 mb-3">
                 <input type="checkbox" checked={agentIntents} onChange={(e) => setAgentIntents(e.target.checked)} />
                 <span className="text-sm">🧠 Agent strategy (per-crew LLM war councils decide attacks/alliances)</span>
@@ -89,6 +103,9 @@ export default function GmClient() {
                 </button>
                 <button className="btn" onClick={() => call("downtime")} disabled={busy !== null}>
                     {busy === "downtime" ? "Posting…" : "🌙 Downtime pass"}
+                </button>
+                <button className="btn" onClick={() => call("forge")} disabled={busy !== null || !season}>
+                    {busy === "forge" ? "Forging…" : "⚔ Forge season loot item"}
                 </button>
                 <button className="btn" onClick={() => call("start")} disabled={busy !== null}>
                     {busy === "start" ? "Starting…" : "＋ Start season"}

@@ -2,6 +2,14 @@ import { createClient } from "@/lib/supabase/server";
 import type { Character, Season, Bet } from "@/lib/types";
 import ArcadeClient from "./arcade-client";
 
+interface LedgerRow {
+    id: string;
+    delta: number;
+    reason: string;
+    ref_id: string | null;
+    created_at: string;
+}
+
 export default async function ArcadePage() {
     const supabase = await createClient();
     const {
@@ -29,6 +37,7 @@ export default async function ArcadePage() {
         .order("name", { ascending: true });
 
     let myBets: Bet[] = [];
+    let ledger: LedgerRow[] = [];
     if (user && season) {
         const { data } = await supabase
             .from("afwar_bets")
@@ -38,6 +47,15 @@ export default async function ArcadePage() {
             .order("created_at", { ascending: false })
             .limit(20);
         myBets = (data as Bet[]) ?? [];
+    }
+    if (user) {
+        const { data } = await supabase
+            .from("afwar_bamf_ledger")
+            .select("id, delta, reason, ref_id, created_at")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(10);
+        ledger = (data as LedgerRow[]) ?? [];
     }
 
     return (
@@ -52,6 +70,35 @@ export default async function ArcadePage() {
                 initialBets={myBets}
                 initialBamf={bamf}
             />
+
+            <div className="mt-10">
+                <h2 className="text-xl mb-3">$BAMF LEDGER — last 10</h2>
+                {ledger.length === 0 ? (
+                    <p className="tag-mono opacity-60">No $BAMF activity yet.</p>
+                ) : (
+                    <div className="flex flex-col gap-2">
+                        {ledger.map((row) => (
+                            <div key={row.id} className="panel p-3 flex justify-between items-center">
+                                <span className="tag-mono opacity-80">
+                                    {row.reason} · {new Date(row.created_at).toLocaleString(undefined, {
+                                        month: "short",
+                                        day: "numeric",
+                                        hour: "numeric",
+                                        minute: "2-digit",
+                                    })}
+                                </span>
+                                <span
+                                    className="tag-mono"
+                                    style={{ color: row.delta >= 0 ? "var(--neon-lime)" : "var(--blood)" }}
+                                >
+                                    {row.delta >= 0 ? "+" : ""}
+                                    {row.delta} $BAMF
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

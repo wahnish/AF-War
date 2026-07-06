@@ -2,11 +2,16 @@
 import type { Ability, Die } from './engine/dice'
 import type { SeasonState } from './engine/season'
 
+// openrouter_key is DELIBERATELY EXCLUDED from this shared type (schema-002
+// §2's documented RLS gap: table-level select-all still exposes every
+// column at the DB layer, so the app-layer discipline of never selecting
+// openrouter_key outside the owner's own settings fetch is the only guard —
+// keeping it off the shared Profile type makes "don't put this in a list
+// query" the type-checked default rather than a comment to remember).
 export interface Profile {
     id: string
     handle: string | null
     role: 'player' | 'gm'
-    openrouter_key: string | null
     model_tier: 'house' | 'byo'
     model_name: string | null
     bamf: number
@@ -95,6 +100,8 @@ export interface Post {
     body: string
     media: unknown[]
     round: number | null
+    tip_count: number
+    tip_total: number
     created_at: string
 }
 

@@ -3,6 +3,7 @@ import type { MatchRow } from "@/lib/types";
 import type { ExchangeBeat } from "@/lib/engine/dice";
 import type { MatchResult } from "@/lib/engine/match";
 import { zoneById } from "@/lib/engine/map";
+import RenderComicButton from "./render-comic-button";
 
 interface ComicPanel {
     n: number;
@@ -47,6 +48,23 @@ export default async function MatchRoomPage({ params }: { params: Promise<{ id: 
     const result = match.dice_transcript as MatchResult | null;
     const tellings = (match.tellings as Telling[] | null) ?? [];
     const verdict = match.verdict as Verdict | null;
+    const media = (match.media as { url?: string; kind?: string }[] | null) ?? [];
+    const comicPages = media.filter((m) => m?.kind === "comic-page" && m.url).map((m) => m.url as string);
+
+    // Comic rung upgrade (final polish round §1c): owner of EITHER combatant
+    // may commission a render if there's no comic media yet.
+    let canOfferRender = false;
+    if (!comicPages.length && (match.a_character || match.b_character)) {
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+            const charIds = [match.a_character, match.b_character].filter((x): x is string => Boolean(x));
+            const { data: ownerRows } = await supabase.from("afwar_characters").select("owner_id").in("id", charIds);
+            canOfferRender = (ownerRows ?? []).some((r: { owner_id: string }) => r.owner_id === user.id);
+        }
+    }
+
     const zone = (() => {
         try {
             return zoneById(match.zone_id);
@@ -83,6 +101,26 @@ export default async function MatchRoomPage({ params }: { params: Promise<{ id: 
                     </p>
                 )}
             </div>
+
+            {comicPages.length > 0 && (
+                <section className="panel p-5 mb-8">
+                    <h2 className="text-2xl mb-3">COMIC PAGES</h2>
+                    <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+                        {comicPages.map((url, i) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                                key={i}
+                                src={url}
+                                alt={`comic page ${i + 1}`}
+                                className="rounded-sm border w-full"
+                                style={{ borderColor: "var(--line-bright)" }}
+                            />
+                        ))}
+                    </div>
+                </section>
+            )}
+
+            {canOfferRender && <RenderComicButton matchId={match.id} />}
 
             {result && (
                 <section className="mb-8">

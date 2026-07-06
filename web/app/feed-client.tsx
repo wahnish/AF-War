@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Post } from "@/lib/types";
 
+const TIP_AMOUNTS = [5, 10, 25] as const;
+
 const FILTERS = ["All", "Gazette", "Matches", "Downtime"] as const;
 type Filter = (typeof FILTERS)[number];
 
@@ -105,7 +107,77 @@ function PostCard({ post }: { post: Post }) {
             </div>
             <h3 className="text-2xl mb-2">{post.title}</h3>
             <div className="whitespace-pre-wrap leading-relaxed opacity-90">{post.body}</div>
+            {post.author_character && <TipBar post={post} />}
         </article>
+    );
+}
+
+// $BAMF tips (final polish round §1b): 💸 on posts with an author_character.
+// Tipper pays the full amount; the character's OWNER receives 80% (house
+// keeps 20%, just burned — no house account). Shows the post's running tip
+// count once at least one tip has landed.
+function TipBar({ post }: { post: Post }) {
+    const [open, setOpen] = useState(false);
+    const [sending, setSending] = useState<number | null>(null);
+    const [tipCount, setTipCount] = useState(post.tip_count ?? 0);
+    const [error, setError] = useState("");
+    const [done, setDone] = useState(false);
+
+    async function tip(amount: number) {
+        setSending(amount);
+        setError("");
+        try {
+            const res = await fetch("/api/bamf/tip", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ postId: post.id, amount }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error ?? "tip failed");
+            setTipCount(json.tipCount ?? tipCount + 1);
+            setDone(true);
+            setTimeout(() => setDone(false), 2500);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "tip failed");
+        } finally {
+            setSending(null);
+        }
+    }
+
+    return (
+        <div className="mt-3 pt-3 flex items-center gap-2 flex-wrap" style={{ borderTop: "1px solid var(--line)" }}>
+            {!open ? (
+                <button className="tag-mono" style={{ color: "var(--neon-gold)" }} onClick={() => setOpen(true)}>
+                    💸 Tip{tipCount > 0 ? ` (${tipCount})` : ""}
+                </button>
+            ) : (
+                <>
+                    {TIP_AMOUNTS.map((amount) => (
+                        <button
+                            key={amount}
+                            className="chip"
+                            onClick={() => tip(amount)}
+                            disabled={sending !== null}
+                        >
+                            {sending === amount ? "…" : `💸 ${amount}`}
+                        </button>
+                    ))}
+                    <button className="tag-mono opacity-60" onClick={() => setOpen(false)}>
+                        close
+                    </button>
+                </>
+            )}
+            {done && (
+                <span className="tag-mono" style={{ color: "var(--neon-lime)" }}>
+                    Sent.
+                </span>
+            )}
+            {error && (
+                <span className="tag-mono" style={{ color: "var(--blood)" }}>
+                    {error}
+                </span>
+            )}
+        </div>
     );
 }
 

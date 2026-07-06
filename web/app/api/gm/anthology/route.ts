@@ -56,9 +56,16 @@ export async function POST() {
         new Set(matches.flatMap((m) => [m.a_character, m.b_character]).filter((id): id is string => Boolean(id)))
     );
     const { data: charRows } = charIds.length
-        ? await supabase.from("afwar_characters").select("id,name").in("id", charIds)
+        ? await supabase.from("afwar_characters").select("id,name,clout,crew_id").in("id", charIds)
+        : { data: [] as Pick<Character, "id" | "name" | "clout" | "crew_id">[] };
+    const featuredChars = (charRows ?? []) as Pick<Character, "id" | "name" | "clout" | "crew_id">[];
+    const names = new Map<string, string>(featuredChars.map((c) => [c.id, c.name]));
+
+    const royaltyCrewIds = Array.from(new Set(featuredChars.map((c) => c.crew_id).filter((id): id is string => Boolean(id))));
+    const { data: royaltyCrewRows } = royaltyCrewIds.length
+        ? await supabase.from("afwar_crews").select("id,name").in("id", royaltyCrewIds)
         : { data: [] as { id: string; name: string }[] };
-    const names = new Map<string, string>(((charRows ?? []) as Pick<Character, "id" | "name">[]).map((c) => [c.id, c.name]));
+    const royaltyCrewNames = new Map<string, string>((royaltyCrewRows ?? []).map((c) => [c.id, c.name]));
 
     const byRound = new Map<number, MatchRow[]>();
     for (const m of matches) {
@@ -124,6 +131,53 @@ export async function POST() {
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // CLOUT→ROYALTY TABLE (final polish round §2): every character who
+    // appeared in >=1 canon telling this season gets a royaltyShare
+    // proportional to their clout among the featured cast. This is the
+    // §10c royalty split rendered as a real number — beta is play-money,
+    // but the SHARE is the same math a real payout would use.
+    // ═══════════════════════════════════════════════════════════════════
+    const featuredCharIds = new Set<string>();
+    for (const m of matches) {
+        const tellings = (m.tellings as { pcId: string }[] | null) ?? [];
+        const verdict = m.verdict;
+        const canonPcId = verdict ? verdict.canonPcId : tellings[0]?.pcId;
+        if (canonPcId) featuredCharIds.add(canonPcId);
+    }
+    const featured = featuredChars.filter((c) => featuredCharIds.has(c.id));
+    const totalClout = featured.reduce((sum, c) => sum + Math.max(0, c.clout ?? 0), 0);
+    const placements = featured
+        .map((c) => ({
+            name: c.name,
+            crew: c.crew_id ? royaltyCrewNames.get(c.crew_id) ?? c.crew_id : "unaffiliated",
+            clout: c.clout ?? 0,
+            share: totalClout > 0 ? (Math.max(0, c.clout ?? 0) / totalClout) * 100 : 0,
+        }))
+        .sort((a, b) => b.clout - a.clout);
+
+    const royaltyLines: string[] = [];
+    royaltyLines.push("");
+    royaltyLines.push("---");
+    royaltyLines.push("");
+    royaltyLines.push("## 📜 SEASON ROYALTY TABLE");
+    royaltyLines.push("");
+    royaltyLines.push(
+        "Shares are the §10c royalty split for anthology/broadcast revenue. Beta: play-money; the number is real, the currency isn't yet."
+    );
+    royaltyLines.push("");
+    if (placements.length) {
+        royaltyLines.push("| Name | Crew | Clout | Share % |");
+        royaltyLines.push("|---|---|---|---|");
+        for (const p of placements) {
+            royaltyLines.push(`| ${p.name} | ${p.crew} | ${p.clout} | ${p.share.toFixed(1)}% |`);
+        }
+    } else {
+        royaltyLines.push("_No featured characters yet — no canon tellings this season._");
+    }
+    const royaltyMarkdown = royaltyLines.join("\n");
+    lines.push(...royaltyLines);
+
     const markdown = lines.join("\n");
 
     const { data: insertedPost, error: postErr } = await supabase
@@ -140,6 +194,19 @@ export async function POST() {
         .select("id")
         .single();
     if (postErr) return NextResponse.json({ error: postErr.message }, { status: 500 });
+
+    // ALSO post the royalty table as its own standalone system post so it's
+    // discoverable in the feed without opening the full anthology.
+    const { error: royaltyPostErr } = await supabase.from("afwar_posts").insert({
+        season_id: season.id,
+        author_character: null,
+        kind: "system",
+        title: "📜 Season Royalty Table",
+        body: royaltyMarkdown,
+        media: [],
+        round: null,
+    });
+    if (royaltyPostErr) console.error("[gm/anthology] royalty post insert failed:", royaltyPostErr);
 
     let storagePath: string | null = null;
     try {
