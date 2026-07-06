@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url'
 import { fal } from '@fal-ai/client'
 import { llmVision, extractJson } from '../agents/llm.js'
 import { CAST } from '../agents/cast.js'
-import { zoneById } from '../engine/map.js'
+import { ZONES } from '../engine/map.js'
 import type { ComicPanel, Telling, Verdict } from '../agents/narrate.js'
 import type { MatchResult } from '../engine/match.js'
 
@@ -90,7 +90,8 @@ async function main() {
     const canon = room.tellings.find(t => t.pcId === room.verdict!.canonPcId)!
     const a = CAST.find(p => p.id === room.result.a)!
     const b = CAST.find(p => p.id === room.result.b)!
-    const zone = zoneById(room.result.zoneId)
+    // tolerate pre-R16 zone ids in older rooms.json bundles
+    const zone = ZONES.find(z => z.id === room.result.zoneId) ?? { id: room.result.zoneId, name: room.result.zoneId, blurb: 'a contested corner of Hyper-Brooklyn', adjacent: [] }
     console.log(`Featured: R${room.round} ${a.name} vs ${b.name} @ ${zone.name} — canon: "${canon.title}" (${canon.panels.length} panels)`)
 
     // 1) model sheets
