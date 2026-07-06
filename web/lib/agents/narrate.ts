@@ -1,11 +1,11 @@
 // Narration, judging, and Gazette recaps. The dice transcript is GROUND TRUTH:
 // narrations must honor every beat; they compete only on the telling.
 
-import { llm, extractJson } from './llm.js'
-import type { PCDef } from '../engine/season.js'
-import type { MatchResult } from '../engine/match.js'
-import type { CanonEvent } from '../engine/season.js'
-import { zoneById } from '../engine/map.js'
+import { llm, extractJson } from './llm'
+import type { PCDef } from '../engine/season'
+import type { MatchResult } from '../engine/match'
+import type { CanonEvent } from '../engine/season'
+import { zoneById } from '../engine/map'
 
 // The tone contract — Todd, 2026-07-05 (spec §10.3)
 export const TONE = `TONE CONTRACT (Adult Fantasy): characters are a bit ridiculous; the message is/can be serious.
