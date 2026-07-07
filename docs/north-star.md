@@ -167,3 +167,36 @@ has no writers' room. Nearest hack: a Canon Cast `gm`-kind entry.
   recaps and (if the Living Glome ships) encounter tables. THE CONTINUITY GRAPH IS THE
   WRITERS' ROOM; THE GAME IS THE RENDER FARM; CANON FLOWS BOTH WAYS. Don't build a
   second authoring tool in AF WAR — the right one already exists in FlowZilla.
+
+### The Sediment Model — the world is everyone's writing (idea zone, extends the Living Glome)
+
+**Todd's framing (2026-07-07):** the game isn't fight-fight-fight — it's a TTRPG
+campaign. Crews make decisions, go off-quest, meet NPCs and other crews' characters.
+Stacked campaigns/sessions BUILD THE WORLD: the corner bodega, once discovered by
+anyone, exists for everyone; the flower shop destroyed by crew 1's kaiju fight is seen
+being rebuilt by crew 3 — possibly without insight or context, just like real life.
+
+**The principle, named:** this is the scar mechanic applied to the world. Scars =
+"your body is other people's writing." The sediment model = "the world is everyone's
+writing." Discovery is authorship ("discovered by Grumble Bee, R3"), destruction is
+authorship, rebuilding is authorship — all credited, all permanent.
+
+**Dramatic irony as a world feature (the deepest part):** the feed audience knows WHY
+the flower shop burned; crew 3 doesn't. Because everything is narrated and recorded,
+spectators get novelist's omniscience while characters live in partial knowledge. No
+other game has this because no other game narrates everything as a side effect of its
+architecture. We get Dickens for free.
+
+**Mechanics sketch:** POIs become first-class world objects with state timelines
+(standing → destroyed → rebuilding → rebuilt), each transition a canon event with a
+CAUSE. Player-discovered POIs via a propose→confirm gate (the FlowZilla universe-inbox
+pattern, reused). Seasons = campaigns; the next season INHERITS the sediment — you
+don't replay a map, you revisit a place with history (the Rayuba Archive instinct,
+productized).
+
+**Constraints (house law):** (1) world-objects need ground truth — a POI's state changes
+because a real match/encounter happened there and the dice said so, never narrator whim;
+(2) discovery gated or the map fills with a thousand unnamed bodegas.
+
+**Architecture:** POIs-with-state-timelines is literally the continuity graph's
+world-state-at-time. The Bridge carries the map's memory, not just the story arcs.
