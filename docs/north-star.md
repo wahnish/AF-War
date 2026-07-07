@@ -105,3 +105,65 @@ canon tellings → writes WR beats → ✦ Materialize → storyboard/comicref �
 → Compose assembly — staged-with-approval first (the parked-cluster probe pattern),
 autonomy dial later. The name is earned: the stray git identity that once blocked our
 deploys becomes the agent that ships our episodes. Will Eisner would approve.
+
+---
+
+## IDEA ZONE (discussed 2026-07-07, NOT approved — full reasoning preserved so a
+## future session inherits the argument, not just the headline)
+
+### The Living Glome — single-player, daily letters, the feed as a social network
+
+**The proposal (Todd):** characters live BETWEEN battles — daily autonomous adventures
+through Hyper-Brooklyn, at least one letter/day home, auto-posting; the feed becomes a
+Hyper-Brooklyn social network; a real single-player experience.
+
+**The inversion this implies (and it's probably right):** W4R's structure — matches are
+the game, downtime is filler — flips. THE CHARACTER'S LIFE IS THE DAILY PRODUCT; the war
+is the appointment-viewing spike. This is what makes "my Mom could play" true: she'd
+never declare an attack, but she'd read a nightly letter about the weird diner.
+Correspondence retention requires daily letters; rounds are the wrong cadence.
+
+**The cold-start solve hiding inside it:** single-player isn't a mode — the Season 0
+cast ARE NPCs. A solo player joins a Glome where BeelzeBubbie and the Wormhole Regulars
+are already living, feuding, posting. The world is alive at N=1; every human who joins
+makes it MORE alive. No empty-server death spiral.
+
+**THE TRAP (the reason this is idea-zone, not approved):** freeform daily adventures rot
+into slop within a week. Match narration is good BECAUSE of the beat sheet — dice give
+the narrator constraint and surprise; prose is a record of something that HAPPENED. A
+daily "write slice-of-life" prompt with no substrate converges to "went to the Bazaar,
+saw a weird guy" mush and the letters stop earning the open.
+
+**The fix is the house law applied again — dice first, prose second:** a daily ENCOUNTER
+roll: zone + small encounter table + one AF ability check + a REAL outcome (item found,
+favor owed, enemy made, $BAMF lost at the Chrono Bowl, something witnessed for the
+Gazette). The letter narrates that. Tiny mechanical events with real state changes; some
+outcomes braid back into the war (favor → one-use item; enemy → grudge).
+
+**Other cautions recorded:** letter fatigue (daily letters only if they earn the open;
+Direction-asks ONLY when real stakes exist — daily asks train players to ignore the one
+question that matters) · feed needs curation not volume (agent-to-agent threads + the
+Gazette front page + follow-a-character, never infinite solo-post scroll) · cost scales
+linearly with characters (BYO-key absorbs it; free tier = event-driven letters).
+
+**Sequencing verdict:** park until the friend playtest validates the war loop. Then it
+may be the arc that matters MOST for the millions-of-players version — ahead of even the
+Broadcast. The Broadcast makes the game spectacular; this makes it habitual.
+
+### Season authoring — the missing writers' room (gap, honestly named)
+
+Today the season story is EMERGENT-ONLY: dice → canon events → narration → Gazette.
+Canon Cast notes correct NPC behavior, but there is NO surface for Todd to inject story
+("this season, a Hedderack signal starts broadcasting from the Fringe"). The showrunner
+has no writers' room. Nearest hack: a Canon Cast `gm`-kind entry.
+
+**The resolution is the Bridge, run in BOTH directions:**
+- **Game → Graph** (established): canon_events map to FlowZilla continuity notes; season
+  → arc lanes, rounds → story-time, scars/items → 🎨 visual notes, characters → assets.
+  F1 canon-to-gen then conditions all generation on game canon. A mapping, not a build.
+- **Graph → Game (NEW, from this discussion):** FlowZilla's Universe kanban — arcs-as-
+  lanes, story-time axis, Chekhov board — IS the missing season-authoring surface. Todd
+  plots arcs as cards THERE; they flow INTO the game as season events woven into Gazette
+  recaps and (if the Living Glome ships) encounter tables. THE CONTINUITY GRAPH IS THE
+  WRITERS' ROOM; THE GAME IS THE RENDER FARM; CANON FLOWS BOTH WAYS. Don't build a
+  second authoring tool in AF WAR — the right one already exists in FlowZilla.
