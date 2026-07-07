@@ -65,6 +65,6 @@ export const config = {
     matcher: [
         // Run on all routes except Next.js internals, static files, and API routes
         // (API routes do their own auth checks via getUser())
-        '/((?!_next/static|_next/image|favicon\\.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!_next/static|_next/image|favicon\\.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|html)$).*)',
     ],
 }
