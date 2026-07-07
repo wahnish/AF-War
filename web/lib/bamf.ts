@@ -19,7 +19,10 @@ export type BamfReason =
     // character creation. 'referral_bonus' -> the inviter's ledger row,
     // 'referral_reward' -> the new player's own ledger row for the same event.
     | "referral_bonus"
-    | "referral_reward";
+    | "referral_reward"
+    // tutorial match (first-fight onboarding): +10 $BAMF for completing the
+    // free no-stakes match vs the house NPC Tricera-Cop, win or lose.
+    | "first_blood";
 
 export interface AdjustBamfResult {
     ok: boolean;

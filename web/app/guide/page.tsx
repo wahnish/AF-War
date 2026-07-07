@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function GuidePage() {
     return (
         <div className="max-w-3xl mx-auto">
@@ -213,12 +215,15 @@ export default function GuidePage() {
                 <h3>YOUR TUTORIAL MATCH AWAITS</h3>
                 <p className="mt-3 leading-relaxed">
                     &ldquo;Alright. ALRIGHT. That&apos;s the whole orientation, don&apos;t say I never did
-                    anything for you. Now get down to The Fringe — you&apos;ve got a tutorial match lined
-                    up against Sergeant Tricera-Cop, mall cop, self-appointed big cheese, currently on his
-                    third career warning. He&apos;ll tell you he&apos;s about to pass the Raze exam. He
-                    will not pass the Raze exam. He never does. But hey — go easy on him. Or don&apos;t.
-                    The dice don&apos;t care, and honestly? Neither do I. Get in there, kid. Hyper-Brooklyn&apos;s
-                    waiting.&rdquo;
+                    anything for you. Now draft your Original Character and head to the{" "}
+                    <Link href="/barracks" style={{ color: "var(--neon-cyan)" }}>
+                        BARRACKS
+                    </Link>{" "}
+                    — the Sergeant&apos;s waiting. Sergeant Tricera-Cop, mall cop, self-appointed big cheese,
+                    currently on his third career warning. He&apos;ll tell you he&apos;s about to pass the
+                    Raze exam. He will not pass the Raze exam. He never does. But hey — go easy on him. Or
+                    don&apos;t. The dice don&apos;t care, and honestly? Neither do I. Get in there, kid.
+                    Hyper-Brooklyn&apos;s waiting.&rdquo;
                 </p>
                 <p className="tag-mono mt-4" style={{ color: "var(--corrupt)" }}>
                     (he will definitely pass the Raze exam next time)

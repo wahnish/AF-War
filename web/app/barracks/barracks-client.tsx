@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Character, CharacterPolicy, CharacterStats, Season, Direction } from "@/lib/types";
 import type { Ability } from "@/lib/engine/dice";
@@ -95,6 +96,32 @@ export default function BarracksClient({ initialCharacters }: { initialCharacter
     const [editing, setEditing] = useState<FormState | null>(null);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
+    // Tutorial match tracking (onboarding): which of this director's
+    // characters already have a tutorial match on record — drives whether
+    // the "FIGHT TRICERA-COP" button shows for that character.
+    const [tutorialDone, setTutorialDone] = useState<Set<string>>(new Set());
+
+    async function refreshTutorialFlags(chars: Character[]) {
+        if (!chars.length) {
+            setTutorialDone(new Set());
+            return;
+        }
+        const supabase = createClient();
+        const { data } = await supabase
+            .from("afwar_matches")
+            .select("a_character")
+            .eq("is_tutorial", true)
+            .in(
+                "a_character",
+                chars.map((c) => c.id)
+            );
+        setTutorialDone(new Set(((data as { a_character: string }[]) ?? []).map((r) => r.a_character)));
+    }
+
+    useEffect(() => {
+        refreshTutorialFlags(initialCharacters);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     async function refresh() {
         const supabase = createClient();
@@ -106,7 +133,9 @@ export default function BarracksClient({ initialCharacters }: { initialCharacter
             .select("*")
             .eq("owner_id", user?.id ?? "")
             .order("created_at", { ascending: false });
-        setCharacters((data as Character[]) ?? []);
+        const next = (data as Character[]) ?? [];
+        setCharacters(next);
+        await refreshTutorialFlags(next);
     }
 
     async function save(form: FormState) {
@@ -227,6 +256,9 @@ export default function BarracksClient({ initialCharacters }: { initialCharacter
                                 {c.power?.name} · Lv {c.power?.level} · kills {c.kills} · clout {c.clout}
                             </div>
                             {c.scars?.length > 0 && <ScarsPanel character={c} onRegenerated={refresh} />}
+                            {c.status === "active" && !tutorialDone.has(c.id) && (
+                                <TutorialMatchButton character={c} />
+                            )}
                             <button className="btn" onClick={() => setEditing(toForm(c))}>
                                 Edit
                             </button>
@@ -404,6 +436,46 @@ function LettersToggle({ character }: { character: Character }) {
             <input type="checkbox" checked={enabled} onChange={toggle} disabled={saving} />
             <span>✉ Letters {enabled ? "on" : "off"}</span>
         </label>
+    );
+}
+
+// Tutorial match (onboarding): every ACTIVE character with no tutorial
+// match yet gets a prominent first-fight prompt against the house NPC
+// Tricera-Cop. POSTs /api/tutorial-match, then routes to the Match Room.
+function TutorialMatchButton({ character }: { character: Character }) {
+    const router = useRouter();
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    async function fight() {
+        setLoading(true);
+        setError("");
+        try {
+            const res = await fetch("/api/tutorial-match", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ characterId: character.id }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error ?? "match failed");
+            router.push(`/match/${json.matchId}`);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "match failed");
+            setLoading(false);
+        }
+    }
+
+    return (
+        <div className="panel p-3 mb-3" style={{ borderColor: "var(--neon-gold)" }}>
+            <button className="btn btn-magenta w-full" onClick={fight} disabled={loading}>
+                {loading ? "The Sergeant is finishing his coffee…" : "⚔ FIGHT TRICERA-COP — your first match"}
+            </button>
+            {error && (
+                <p className="tag-mono mt-2" style={{ color: "var(--blood)" }}>
+                    {error}
+                </p>
+            )}
+        </div>
     );
 }
 

@@ -84,12 +84,17 @@ export type MatchVerdict = { canonPcId: string; scores: Record<string, number>; 
 
 export interface MatchRow {
     id: string
-    season_id: string
+    season_id: string | null
     round: number
     zone_id: string
     stakes: string
     a_character: string | null
     b_character: string | null
+    // Tutorial matches (schema-006): opponent is a house NPC (Tricera-Cop)
+    // with no afwar_characters row, so b_character stays null and this
+    // holds the display name instead.
+    b_character_name: string | null
+    is_tutorial: boolean
     dice_transcript: MatchDiceTranscript
     tellings: MatchTellings
     verdict: MatchVerdict

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { MatchRow } from "@/lib/types";
 import type { ExchangeBeat } from "@/lib/engine/dice";
@@ -84,6 +85,14 @@ export default async function MatchRoomPage({ params }: { params: Promise<{ id: 
 
     return (
         <div>
+            {match.is_tutorial && (
+                <div
+                    className="panel p-3 mb-4 tag-mono text-center"
+                    style={{ borderColor: "var(--neon-gold)", color: "var(--neon-gold)" }}
+                >
+                    TUTORIAL MATCH — Coney Island, no stakes
+                </div>
+            )}
             <div
                 className="panel p-6 mb-6"
                 style={{ borderColor: stakesColor, boxShadow: `0 0 30px ${stakesColor}22` }}
@@ -92,7 +101,8 @@ export default async function MatchRoomPage({ params }: { params: Promise<{ id: 
                     {match.stakes?.toUpperCase()} STAKES · ROUND {match.round} · {zone.name}
                 </div>
                 <h1 className="text-4xl mb-1">
-                    {tellings[0]?.title ?? `Match ${match.a_character ?? "?"} vs ${match.b_character ?? "?"}`}
+                    {tellings[0]?.title ??
+                        `Match ${match.a_character ?? "?"} vs ${match.b_character ?? match.b_character_name ?? "?"}`}
                 </h1>
                 <p className="tag-mono opacity-70">{zone.blurb}</p>
                 {match.winner && (
@@ -236,6 +246,24 @@ export default async function MatchRoomPage({ params }: { params: Promise<{ id: 
                         </blockquote>
                     </div>
                 </section>
+            )}
+
+            {match.is_tutorial && (
+                <p className="tag-mono mt-4 opacity-80">
+                    That&apos;s the loop. Set a Direction in the{" "}
+                    <Link href="/barracks" style={{ color: "var(--neon-cyan)" }}>
+                        Barracks
+                    </Link>
+                    ,{" "}
+                    <Link href="/crews" style={{ color: "var(--neon-cyan)" }}>
+                        join a crew
+                    </Link>
+                    , and wait for the{" "}
+                    <Link href="/" style={{ color: "var(--neon-cyan)" }}>
+                        Gazette
+                    </Link>
+                    .
+                </p>
             )}
         </div>
     );
