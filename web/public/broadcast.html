@@ -1,0 +1,465 @@
+<title>AF WAR — The Broadcast (Season 0)</title>
+<meta name="color-scheme" content="dark" />
+<style>
+  :root{
+    --ground:#0b0e14;
+    --ground-warm:#160f13;
+    --amber:#ffb648;
+    --cyan:#4de3d1;
+    --magenta:#ff3d8f;
+    --scar:#d3453f;
+    --paper:#f2ece1;
+    --ink:#1c1611;
+    --f-display: "Arial Black","Helvetica Neue",Arial,sans-serif;
+    --f-serif: Georgia,"Times New Roman",Times,serif;
+    --f-mono: ui-monospace,"SF Mono","Cascadia Mono","Consolas",monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--ground);color:var(--paper);
+    font-family:var(--f-serif);overflow-x:hidden;}
+  body{width:100%;min-height:100vh;}
+  #app{position:relative;width:100%;height:100vh;overflow:hidden;background:radial-gradient(120% 140% at 50% 30%, #12161f 0%, #0b0e14 60%, #060709 100%);}
+  #app:focus{outline:none;}
+
+  /* the network "bug" */
+  #bug{position:fixed;top:18px;left:22px;z-index:50;font-family:var(--f-mono);
+    font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--paper);
+    opacity:.42;pointer-events:none;}
+  #bug b{color:var(--amber);opacity:1;}
+
+  /* CRT dressing */
+  #scanlines{position:fixed;inset:0;z-index:40;pointer-events:none;
+    background:repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,.16) 3px);
+    mix-blend-mode:multiply;}
+  #vignette{position:fixed;inset:0;z-index:41;pointer-events:none;
+    background:radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0,0,0,.55) 100%);}
+  #noise{position:fixed;inset:0;z-index:42;pointer-events:none;opacity:.05;mix-blend-mode:overlay;}
+
+  /* progress + controls */
+  #chrome{position:fixed;left:0;right:0;bottom:0;z-index:60;padding:14px 22px 16px;
+    display:flex;align-items:center;gap:14px;font-family:var(--f-mono);}
+  #track{flex:1;height:2px;background:rgba(242,236,225,.14);position:relative;}
+  #fill{position:absolute;left:0;top:0;bottom:0;width:0%;background:linear-gradient(90deg,var(--cyan),var(--magenta));
+    transition:width .25s linear;}
+  #label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;opacity:.55;white-space:nowrap;}
+  button.ctl{font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    background:transparent;border:1px solid rgba(242,236,225,.3);color:var(--paper);
+    padding:7px 13px;cursor:pointer;border-radius:2px;transition:border-color .2s, color .2s, background .2s;}
+  button.ctl:hover{border-color:var(--cyan);color:var(--cyan);}
+  button.ctl:focus-visible{outline:2px solid var(--cyan);outline-offset:2px;}
+
+  /* scenes */
+  .scene{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;opacity:0;pointer-events:none;transition:opacity .9s ease;padding:8vh 6vw;text-align:center;}
+  .scene.active{opacity:1;pointer-events:auto;}
+  .scene canvas{position:absolute;inset:0;width:100%;height:100%;}
+
+  .mono{font-family:var(--f-mono);}
+  .eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;opacity:.7;}
+
+  /* scene 0 — tuning */
+  #s0 .signal{font-family:var(--f-mono);font-size:13px;letter-spacing:.3em;color:var(--paper);opacity:.8;}
+  #s0.flicker{animation:flick 140ms steps(2) 3;}
+  @keyframes flick{0%,100%{filter:brightness(1)}50%{filter:brightness(2.4) contrast(1.4)}}
+
+  /* scene 1 — glome */
+  #s1 .stamp{position:absolute;font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;opacity:0;animation:in .6s ease forwards;}
+  #s1 .stamp.a{top:9%;left:6%;color:var(--amber);animation-delay:.5s;text-align:left;}
+  #s1 .stamp.b{top:16%;left:6%;color:var(--cyan);animation-delay:1.3s;text-align:left;}
+  #s1 .stamp.c{bottom:9%;right:6%;color:var(--paper);opacity:.6;animation-delay:2.4s;text-align:right;}
+  @keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+  /* scene 2 — title */
+  .titlewrap{position:relative;}
+  .huge{font-family:var(--f-display);font-weight:900;font-stretch:condensed;
+    font-size:min(14vw,150px);line-height:.92;text-transform:uppercase;letter-spacing:-.01em;
+    text-wrap:balance;position:relative;color:var(--paper);}
+  .huge .ghost{position:absolute;inset:0;z-index:-1;}
+  .huge .ghost.c{color:var(--cyan);transform:translate(-3px,0);opacity:.55;}
+  .huge .ghost.m{color:var(--magenta);transform:translate(3px,0);opacity:.5;}
+  .sub{font-family:var(--f-serif);font-style:normal;font-size:17px;opacity:.82;margin-top:18px;
+    max-width:46ch;text-wrap:balance;}
+  #s2 .foot{margin-top:26px;font-size:11px;letter-spacing:.14em;opacity:.5;}
+
+  /* scene 3 — gazette clippings */
+  #s3{gap:18px;}
+  .clips{display:flex;flex-wrap:wrap;justify-content:center;gap:16px;max-width:980px;}
+  .clip{background:var(--paper);color:var(--ink);width:250px;padding:16px 16px 18px;
+    clip-path:polygon(0 2%,3% 0,97% 1%,100% 4%,99% 96%,96% 100%,4% 99%,1% 95%);
+    box-shadow:0 14px 30px rgba(0,0,0,.45);opacity:0;transform:translateY(14px) rotate(var(--r,0deg));
+    animation:clipIn .6s ease forwards;text-align:left;}
+  .clip:nth-child(1){--r:-2.4deg;animation-delay:.2s;}
+  .clip:nth-child(2){--r:1.6deg;animation-delay:.9s;}
+  .clip:nth-child(3){--r:-1.2deg;animation-delay:1.6s;}
+  .clip:nth-child(4){--r:2deg;animation-delay:2.3s;background:#111;color:var(--paper);}
+  @keyframes clipIn{to{opacity:1;transform:translateY(0) rotate(var(--r,0deg));}}
+  .clip .kicker{font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;opacity:.6;}
+  .clip h3{font-family:var(--f-serif);font-size:16px;line-height:1.2;margin:6px 0 4px;font-weight:700;}
+  .clip p{font-size:12px;line-height:1.35;margin:0;opacity:.85;}
+  .clip.comic p{font-family:var(--f-mono);font-size:11px;opacity:.9;}
+  .clip.comic .sfx{color:var(--scar);font-family:var(--f-display);font-size:13px;letter-spacing:.04em;}
+  #s3 .gazette-mast{font-family:var(--f-serif);font-weight:700;font-size:13px;letter-spacing:.02em;
+    opacity:.55;margin-bottom:2px;}
+
+  /* scene 4 — crews / board */
+  #s4 .boardstage{position:relative;width:min(90vw,640px);height:min(46vh,360px);}
+  #s4 .legend{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 22px;max-width:900px;margin-top:6px;}
+  .crewrow{display:flex;align-items:baseline;gap:8px;font-family:var(--f-mono);font-size:12px;
+    opacity:0;animation:in .5s ease forwards;}
+  .crewrow .dot{width:9px;height:9px;border-radius:1px;display:inline-block;flex:none;}
+  .crewrow b{font-family:var(--f-display);letter-spacing:.01em;font-size:13px;}
+  .crewrow span{opacity:.6;}
+  #s4 .legend .crewrow:nth-child(1){animation-delay:2.7s;}
+  #s4 .legend .crewrow:nth-child(2){animation-delay:3.1s;}
+  #s4 .legend .crewrow:nth-child(3){animation-delay:3.5s;}
+  #s4 .legend .crewrow:nth-child(4){animation-delay:3.9s;}
+  #s4 .legend .crewrow:nth-child(5){animation-delay:4.3s;}
+
+  /* scene 5 — thesis */
+  #s5 .line1{font-family:var(--f-display);font-weight:900;font-stretch:condensed;text-transform:uppercase;
+    font-size:min(8vw,64px);opacity:0;animation:in .6s ease forwards;animation-delay:.15s;text-wrap:balance;}
+  #s5 .line2{font-family:var(--f-display);font-weight:900;font-stretch:condensed;text-transform:uppercase;
+    font-size:min(8vw,64px);color:var(--cyan);opacity:0;animation:in .6s ease forwards;animation-delay:1.15s;
+    text-wrap:balance;}
+  #s5 .line3{font-family:var(--f-serif);font-size:15px;opacity:0;animation:in .6s ease forwards;
+    animation-delay:2.15s;margin-top:20px;max-width:44ch;}
+
+  /* scene 6 — credits */
+  #s6{justify-content:flex-start;padding-top:9vh;}
+  #s6 .studio{font-family:var(--f-display);font-weight:900;letter-spacing:.02em;text-transform:uppercase;
+    font-size:min(4.6vw,30px);}
+  #s6 .studio i{font-style:normal;color:var(--amber);}
+  #s6 dl{font-family:var(--f-mono);font-size:12px;margin:26px 0 8px;display:grid;
+    grid-template-columns:auto auto;gap:7px 22px;justify-content:center;text-align:left;}
+  #s6 dt{opacity:.5;text-transform:uppercase;letter-spacing:.08em;font-size:10px;align-self:center;}
+  #s6 dd{margin:0;color:var(--paper);}
+  #s6 .signoff{font-family:var(--f-display);font-weight:900;font-stretch:condensed;text-transform:uppercase;
+    font-size:min(7vw,52px);margin-top:34px;color:var(--paper);
+    text-shadow:0 0 26px rgba(77,227,209,.35), 0 0 60px rgba(255,61,143,.18);text-wrap:balance;}
+  #s6 .domain{margin-top:16px;font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;opacity:.45;}
+
+  /* reduced motion / static fallback */
+  body.static-mode #app{height:auto;min-height:100vh;overflow:visible;}
+  body.static-mode .scene{position:static;opacity:1;pointer-events:auto;transition:none;
+    min-height:100vh;border-bottom:1px solid rgba(242,236,225,.08);}
+  body.static-mode #chrome,body.static-mode #bug{display:none;}
+  body.static-mode .clip,body.static-mode .crewrow,body.static-mode .huge .ghost,
+  body.static-mode #s5 .line1,body.static-mode #s5 .line2,body.static-mode #s5 .line3,
+  body.static-mode #s1 .stamp{animation:none !important;opacity:1 !important;transform:none !important;}
+</style>
+
+<div id="app" tabindex="-1">
+  <canvas id="noise"></canvas>
+  <div id="scanlines"></div>
+  <div id="vignette"></div>
+  <div id="bug"><b>AF WAR</b> · SEASON 0 · A HYPER-BROOKLYN BROADCAST</div>
+
+  <section class="scene" id="s0">
+    <div class="signal mono">◼ NO SIGNAL</div>
+  </section>
+
+  <section class="scene" id="s1">
+    <canvas id="domeCanvas"></canvas>
+    <div class="stamp a">KUJDESTAR TESSERACT — REACTIVATED</div>
+    <div class="stamp b">GUARDIAN GLOME — ENGAGED</div>
+    <div class="stamp c">BROOKLYN, NY<br />HOLO-DIMENSIONAL LOCKDOWN</div>
+  </section>
+
+  <section class="scene" id="s2">
+    <div class="titlewrap">
+      <div class="huge">HYPER-BROOKLYN
+        <span class="ghost c" aria-hidden="true">HYPER-BROOKLYN</span>
+        <span class="ghost m" aria-hidden="true">HYPER-BROOKLYN</span>
+      </div>
+    </div>
+    <p class="sub">A phantom-zone Brooklyn, sealed since the Great Rift. The neighborhoods are real.
+      What's living in them, less so.</p>
+    <div class="foot mono">SEASON 0 · &ldquo;THE GLOME WEAKENS&rdquo;</div>
+  </section>
+
+  <section class="scene" id="s3">
+    <div class="eyebrow">Previously, in the Glome</div>
+    <div class="clips">
+      <article class="clip">
+        <div class="kicker">The Hyper-Brooklyn Gazette</div>
+        <h3>Elder Zombies Crowned</h3>
+        <p>BeelzeBubbie takes Season&nbsp;0 with 13 points, closing the buffet on four rival crews.</p>
+      </article>
+      <article class="clip">
+        <div class="kicker">The Hyper-Brooklyn Gazette</div>
+        <h3>Grumble Bee, Age Ten, Double-Kills at Ebbets Field</h3>
+        <p>Full Metal Jackson and Cobalt Fox both fall in Round&nbsp;5. The lunch box is not a lunch box.</p>
+      </article>
+      <article class="clip">
+        <div class="kicker">The Hyper-Brooklyn Gazette</div>
+        <h3>Syndicate Betrays Rescue Squad at the Awful Waffle</h3>
+        <p>Round&nbsp;2. Cobalt Fox is, once again, a double agent. Nobody is surprised.</p>
+      </article>
+      <article class="clip comic">
+        <div class="gazette-mast">THE WAFFLE INCIDENT — SIM vs. COBALT FOX</div>
+        <p>&ldquo;Oh, bollocks.&rdquo;</p>
+        <p class="sfx">CRUNCH</p>
+        <p>&ldquo;Let me show you something I learned in Ulaanbaatar&hellip;&rdquo;</p>
+        <p class="sfx">ERROR: TEMPORAL PARADOX</p>
+        <p class="sfx">KZZT — WHAM</p>
+        <p>&ldquo;Coffee?&rdquo; &ldquo;Please.&rdquo;</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="scene" id="s4">
+    <div class="eyebrow">Five crews. One Glome.</div>
+    <div class="boardstage"><canvas id="boardCanvas"></canvas></div>
+    <div class="legend">
+      <div class="crewrow"><span class="dot" style="background:#c65bd6"></span><b>THE ELDER ZOMBIES</b><span>&mdash; &ldquo;The buffet closes when WE say it closes.&rdquo;</span></div>
+      <div class="crewrow"><span class="dot" style="background:#e0603f"></span><b>THE HELLMOUTH COMMANDOS</b><span>&mdash; &ldquo;Punk rock keeps the Primordial in check.&rdquo;</span></div>
+      <div class="crewrow"><span class="dot" style="background:#4d8fe3"></span><b>THE RESCUE SQUAD</b><span>&mdash; &ldquo;Rescue is such a strong word.&rdquo;</span></div>
+      <div class="crewrow"><span class="dot" style="background:#d1b23c"></span><b>THE CHINATOWN SYNDICATE</b><span>&mdash; &ldquo;Everything is negotiable. Especially you.&rdquo;</span></div>
+      <div class="crewrow"><span class="dot" style="background:#4dbf7a"></span><b>THE WORMHOLE REGULARS</b><span>&mdash; &ldquo;Last call is a state of mind.&rdquo;</span></div>
+    </div>
+  </section>
+
+  <section class="scene" id="s5">
+    <div class="line1">Every match is a script.</div>
+    <div class="line2">Every season, a show.</div>
+    <p class="line3 mono">Written by its players. Ruled by the dice. Never the same twice.</p>
+  </section>
+
+  <section class="scene" id="s6">
+    <div class="eyebrow">Transmission 0 &middot; complete</div>
+    <div class="studio">A <i>Clever&nbsp;Era</i> / GridZilla&nbsp;Studio Production</div>
+    <dl>
+      <dt>Creator</dt><dd>Todd Wahnish</dd>
+      <dt>Showrunner (in training)</dt><dd>Eisner</dd>
+      <dt>Written by</dt><dd>The dice, nightly, without permission</dd>
+      <dt>Judged by</dt><dd>The Arbiter</dd>
+      <dt>Season 0 champion</dt><dd>BeelzeBubbie, The Elder Zombies</dd>
+      <dt>Built across</dt><dd>one very long weekend, by Todd &amp; Fable&nbsp;5</dd>
+    </dl>
+    <div class="signoff">So that others may live.</div>
+    <div class="domain mono">af-war.vercel.app</div>
+  </section>
+
+  <div id="chrome">
+    <span id="label" class="mono">EP&nbsp;00 &middot; SEASON&nbsp;0</span>
+    <div id="track"><div id="fill"></div></div>
+    <button id="replayBtn" class="ctl" style="display:none">&#8635; Replay transmission</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var scenes = ['s0','s1','s2','s3','s4','s5','s6'];
+  var durations = [1600, 4200, 2600, 5200, 5200, 3400, 999999999];
+  var app = document.getElementById('app');
+  var fill = document.getElementById('fill');
+  var replayBtn = document.getElementById('replayBtn');
+  var idx = 0, timer = null, sceneStart = 0, raf = null;
+  var totalPlay = durations.slice(0, -1).reduce(function(a,b){return a+b;}, 0);
+
+  function setActive(i){
+    scenes.forEach(function(id, j){
+      document.getElementById(id).classList.toggle('active', j === i);
+    });
+    if (i === 0) {
+      var s0 = document.getElementById('s0');
+      s0.classList.add('flicker');
+      setTimeout(function(){ s0.classList.remove('flicker'); }, 500);
+    }
+  }
+
+  function advance(){
+    idx++;
+    if (idx >= scenes.length) idx = scenes.length - 1;
+    setActive(idx);
+    if (idx === scenes.length - 1) {
+      replayBtn.style.display = 'inline-block';
+      if (raf) cancelAnimationFrame(raf);
+    } else {
+      queue();
+    }
+  }
+
+  function queue(){
+    clearTimeout(timer);
+    timer = setTimeout(advance, durations[idx]);
+  }
+
+  function tickProgress(ts){
+    if (idx < scenes.length - 1) {
+      var elapsedBefore = durations.slice(0, idx).reduce(function(a,b){return a+b;}, 0);
+      var t = Math.min(1, (elapsedBefore + (ts - sceneStart)) / totalPlay);
+      fill.style.width = (t * 100) + '%';
+      raf = requestAnimationFrame(tickProgress);
+    } else {
+      fill.style.width = '100%';
+    }
+  }
+
+  function restart(){
+    idx = 0;
+    replayBtn.style.display = 'none';
+    fill.style.width = '0%';
+    setActive(0);
+    if (!reduced) {
+      queue();
+      sceneStart = performance.now();
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(function(ts){ sceneStart = ts; tickProgress(ts); });
+    }
+  }
+
+  replayBtn.addEventListener('click', restart);
+  app.addEventListener('click', function(){
+    if (!reduced && idx < scenes.length - 1) { clearTimeout(timer); advance(); }
+  });
+
+  /* ---- decorative canvases (skipped in reduced-motion) ---- */
+  function fit(canvas){
+    var r = canvas.parentElement.getBoundingClientRect();
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = r.width * dpr; canvas.height = r.height * dpr;
+    var ctx = canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+    return { ctx: ctx, w: r.width, h: r.height };
+  }
+
+  // noise
+  (function(){
+    var canvas = document.getElementById('noise');
+    var g = fit(canvas);
+    var frame = 0;
+    function draw(){
+      var img = g.ctx.createImageData(Math.ceil(g.w/3), Math.ceil(g.h/3));
+      for (var i = 0; i < img.data.length; i += 4) {
+        var v = Math.random() * 255;
+        img.data[i] = img.data[i+1] = img.data[i+2] = v; img.data[i+3] = 40;
+      }
+      g.ctx.putImageData(img, 0, 0);
+      g.ctx.imageSmoothingEnabled = false;
+      g.ctx.drawImage(canvas, 0, 0, img.width, img.height, 0, 0, g.w, g.h);
+      frame++;
+      if (!reduced) raf2 = requestAnimationFrame(draw); else return;
+    }
+    var raf2;
+    draw();
+  })();
+
+  // dome / skyline (scene 1)
+  (function(){
+    var canvas = document.getElementById('domeCanvas');
+    if (!canvas) return;
+    var g = fit(canvas);
+    var buildings = [];
+    var n = 22;
+    for (var i = 0; i < n; i++) {
+      buildings.push({
+        x: (g.w / n) * i,
+        w: (g.w / n) * (0.55 + Math.random()*0.4),
+        h: g.h * (0.14 + Math.random() * 0.30),
+        lit: Math.random() > 0.4
+      });
+    }
+    var t0 = performance.now();
+    function draw(ts){
+      var t = Math.min(1, (ts - t0) / 3400);
+      g.ctx.clearRect(0,0,g.w,g.h);
+      // skyline
+      g.ctx.fillStyle = '#0d1017';
+      buildings.forEach(function(b){
+        g.ctx.fillRect(b.x, g.h - b.h, b.w, b.h);
+        if (b.lit) {
+          g.ctx.fillStyle = 'rgba(255,182,72,.55)';
+          for (var wy = g.h - b.h + 10; wy < g.h - 8; wy += 14) {
+            for (var wx = b.x + 4; wx < b.x + b.w - 4; wx += 10) {
+              if (Math.random() > 0.4) g.ctx.fillRect(wx, wy, 3, 5);
+            }
+          }
+          g.ctx.fillStyle = '#0d1017';
+        }
+      });
+      // closing dome ring
+      var cx = g.w/2, cy = g.h*0.62, rMax = Math.max(g.w,g.h)*0.62;
+      var sweep = Math.PI * 2 * (0.02 + t*0.98);
+      var grad = g.ctx.createLinearGradient(0,0,g.w,0);
+      grad.addColorStop(0,'#4de3d1'); grad.addColorStop(1,'#ff3d8f');
+      g.ctx.save();
+      g.ctx.strokeStyle = grad;
+      g.ctx.lineWidth = 3;
+      g.ctx.shadowColor = 'rgba(77,227,209,.7)';
+      g.ctx.shadowBlur = 18;
+      g.ctx.globalAlpha = 0.85;
+      g.ctx.beginPath();
+      g.ctx.arc(cx, cy, rMax, -Math.PI/2, -Math.PI/2 + sweep);
+      g.ctx.stroke();
+      g.ctx.restore();
+      if (t < 1 && !reduced) requestAnimationFrame(draw); else if (reduced) {
+        // static final frame for reduced motion
+        g.ctx.save(); g.ctx.strokeStyle = grad; g.ctx.lineWidth = 3;
+        g.ctx.beginPath(); g.ctx.arc(cx, cy, rMax, 0, Math.PI*2); g.ctx.stroke(); g.ctx.restore();
+      }
+    }
+    requestAnimationFrame(draw);
+  })();
+
+  // crew chessboard (scene 4)
+  (function(){
+    var canvas = document.getElementById('boardCanvas');
+    if (!canvas) return;
+    var g = fit(canvas);
+    var cols = 6, rows = 4, cell = Math.min(g.w/cols, g.h/rows);
+    var boardW = cell*cols, boardH = cell*rows;
+    var ox = (g.w-boardW)/2, oy = (g.h-boardH)/2;
+    var colors = ['#c65bd6','#e0603f','#4d8fe3','#d1b23c','#4dbf7a'];
+    var targets = [
+      {c:1,r:1},{c:4,r:0},{c:0,r:3},{c:5,r:2},{c:2,r:3}
+    ];
+    var pieces = targets.map(function(t, i){
+      return { fx: -1.5 - i*0.6, fy: t.r, tx: t.c, ty: t.r, color: colors[i] };
+    });
+    var t0 = performance.now(), dur = 3600;
+    function ease(x){ return 1 - Math.pow(1-x, 3); }
+    function draw(ts){
+      var t = Math.min(1, (ts - t0) / dur);
+      var e = ease(t);
+      g.ctx.clearRect(0,0,g.w,g.h);
+      for (var r=0;r<rows;r++) for (var c=0;c<cols;c++){
+        g.ctx.fillStyle = (r+c)%2===0 ? 'rgba(242,236,225,.06)' : 'rgba(242,236,225,.02)';
+        g.ctx.fillRect(ox+c*cell, oy+r*cell, cell, cell);
+      }
+      g.ctx.strokeStyle = 'rgba(242,236,225,.14)';
+      g.ctx.strokeRect(ox, oy, boardW, boardH);
+      pieces.forEach(function(p){
+        var cx = ox + (p.fx + (p.tx-p.fx)*e + 0.5) * cell;
+        var cy = oy + (p.fy + (p.ty-p.fy)*e + 0.5) * cell;
+        g.ctx.save();
+        g.ctx.fillStyle = p.color;
+        g.ctx.shadowColor = p.color; g.ctx.shadowBlur = 10;
+        g.ctx.beginPath();
+        g.ctx.arc(cx, cy, cell*0.26, 0, Math.PI*2);
+        g.ctx.fill();
+        g.ctx.beginPath();
+        g.ctx.moveTo(cx, cy - cell*0.34);
+        g.ctx.lineTo(cx - cell*0.13, cy - cell*0.16);
+        g.ctx.lineTo(cx + cell*0.13, cy - cell*0.16);
+        g.ctx.closePath(); g.ctx.fill();
+        g.ctx.restore();
+      });
+      if (t < 1 && !reduced) requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+  })();
+
+  window.addEventListener('resize', function(){ /* canvases are decorative; skip live re-fit to keep this lean */ });
+
+  if (reduced) {
+    document.body.classList.add('static-mode');
+    scenes.forEach(function(id){ document.getElementById(id).classList.add('active'); });
+  } else {
+    setActive(0);
+    queue();
+    raf = requestAnimationFrame(function(ts){ sceneStart = ts; tickProgress(ts); });
+  }
+})();
+</script>
